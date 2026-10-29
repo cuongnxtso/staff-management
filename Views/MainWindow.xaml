@@ -1,0 +1,411 @@
+<Window x:Class="StaffManagement.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:StaffManagement.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:MainViewModel}"
+        Title="Quản lý cán bộ lãnh đạo, quản lý"
+        Height="860" Width="1420" MinWidth="1000" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Style="{StaticResource AppWindow}"
+        AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop">
+
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddRecordCommand}" />
+        <KeyBinding Key="E" Modifiers="Control" Command="{Binding ExportExcelCommand}" />
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding ImportExcelCommand}" />
+        <KeyBinding Key="D" Modifiers="Control" Command="{Binding ImportDecisionCommand}" />
+        <KeyBinding Key="PageUp" Modifiers="Control" Command="{Binding SelectSheetCommand}" CommandParameter="0" />
+        <KeyBinding Key="PageDown" Modifiers="Control" Command="{Binding SelectSheetCommand}" CommandParameter="1" />
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <!-- Dashed drop zone for decision files -->
+        <Style x:Key="DropZoneButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="12,0,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Rectangle x:Name="bg" Fill="#F7FAFF" Stroke="{StaticResource PrimaryBrush}" StrokeDashArray="4 3"
+                                       StrokeThickness="1.2" RadiusX="5" RadiusY="5" />
+                            <ContentPresenter Margin="14,6" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Fill" Value="{StaticResource PrimaryLightBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Excel-style sheet tabs under the list -->
+        <Style x:Key="SheetTab" TargetType="ListBoxItem">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Margin="0,0,2,0">
+                            <Border x:Name="tab" Background="#E3E8EF" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,1,1"
+                                    CornerRadius="0,0,5,5" Padding="18,6,18,7">
+                                <ContentPresenter />
+                            </Border>
+                            <Rectangle x:Name="accent" Height="3" VerticalAlignment="Bottom" Margin="1,0,1,0" RadiusX="2" RadiusY="2"
+                                       Fill="{StaticResource PrimaryBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tab" Property="Background" Value="#EEF2F7" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tab" Property="Background" Value="White" />
+                                <Setter TargetName="accent" Property="Visibility" Value="Visible" />
+                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryBrush}" />
+                                <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- ===== Header ===== -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource PrimaryBrush}" Padding="16,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="RemindersButton" Style="{StaticResource HeaderButton}" Command="{Binding OpenRemindersCommand}"
+                            ToolTip="Chức vụ sắp kết thúc (hết nhiệm kỳ / nghỉ hưu) — đếm ngược từ 100 ngày, nhắc mỗi 5 ngày">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔔  Nhắc hạn" />
+                            <Border Background="{StaticResource DangerBrush}" CornerRadius="9" MinWidth="20" Height="18" Padding="6,0" Margin="8,0,0,0"
+                                    Visibility="{Binding ReminderCount, Converter={StaticResource VisibleIf}}">
+                                <TextBlock Text="{Binding ReminderCount}" Foreground="White" FontSize="11.5" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource HeaderButton}" Command="{Binding ImportExcelCommand}" ToolTip="Nhập danh sách từ tệp Excel theo mẫu (Ctrl+O)">
+                        <TextBlock Text="📥  Nhập Excel" />
+                    </Button>
+                    <Button Style="{StaticResource HeaderButton}" Command="{Binding ExportExcelCommand}" ToolTip="Xuất danh sách đang lọc ra Excel theo mẫu (Ctrl+E)">
+                        <TextBlock Text="📤  Xuất Excel" />
+                    </Button>
+                    <Button Style="{StaticResource HeaderButton}" Command="{Binding OpenSettingsCommand}" ToolTip="Cài đặt AI, thông tin xuất báo cáo, sao lưu dữ liệu">
+                        <TextBlock Text="⚙  Cài đặt" />
+                    </Button>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="DANH SÁCH CÁN BỘ LÃNH ĐẠO, QUẢN LÝ" Foreground="White" FontSize="17" FontWeight="SemiBold" />
+                    <TextBlock Foreground="#CFE0F7" FontSize="12">
+                        <Run Text="Tổng số: " /><Run Text="{Binding TotalRows, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" dòng chức vụ trong cơ sở dữ liệu · kéo thả tệp Excel hoặc Quyết định vào cửa sổ để nhập" />
+                    </TextBlock>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== Reminder banner: shown when a post reaches a new count-down mark ===== -->
+        <Border DockPanel.Dock="Top" Background="#FFF4D6" BorderBrush="#F0C36D" BorderThickness="0,0,0,1" Padding="16,8"
+                Visibility="{Binding ReminderBanner, Converter={StaticResource VisibleIf}}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Xem danh sách" Style="{StaticResource PrimaryButton}" Command="{Binding OpenRemindersCommand}" />
+                    <Button Content="✕" Style="{StaticResource IconButton}" Foreground="#8A5A00" Command="{Binding CloseReminderBannerCommand}"
+                            ToolTip="Ẩn thông báo (sẽ nhắc lại ở mốc tiếp theo)" Margin="0" />
+                </StackPanel>
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="#5C3D00">
+                    <Run Text="🔔 " /><Run Text="{Binding ReminderBanner, Mode=OneWay}" />
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== Summary bar ===== -->
+        <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,7">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ProgressBar IsIndeterminate="True" Width="80" Height="6" Margin="0,0,10,0"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource VisibleIf}}" />
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" MaxWidth="400" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding StatusText}" />
+                </StackPanel>
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                    <Run Text="Đang hiển thị: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding FilteredRows, Mode=OneWay}" FontWeight="Bold" /><Run Text=" dòng · " /><Run Text="{Binding FilteredPeople, Mode=OneWay}" FontWeight="Bold" /><Run Text=" cán bộ" />
+                    <Run Text="   │   Nam: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding MaleText, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text="   │   Nữ: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding FemaleText, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text="   │   Tuổi TB: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding AverageAgeText, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text="   │   Đảng viên: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding PartyCount, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text="   │   Nghỉ hưu năm nay: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding RetiringThisYear, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text="   │   Hết hạn BN năm nay: " Foreground="{StaticResource MutedBrush}" /><Run Text="{Binding ExpiringThisYear, Mode=OneWay}" FontWeight="SemiBold" />
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <Grid Margin="12,10,12,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ===== Search ===== -->
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBox x:Name="QuickSearchBox" Grid.ColumnSpan="3" Style="{StaticResource SearchBox}"
+                             Tag="🔍  Tìm nhanh theo họ tên, mã CB, chức vụ, đơn vị, số điện thoại… (không cần gõ dấu)"
+                             Text="{Binding QuickSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+
+                    <TextBox x:Name="NaturalQueryBox" Grid.Row="1" Margin="0,8,0,0" Style="{StaticResource SearchBox}"
+                             Tag="💬  Hỏi nhanh, ví dụ: &quot;nữ từ 40 đến 50 tuổi là đảng viên&quot;, &quot;trưởng bộ môn nghỉ hưu năm nay&quot;, &quot;PGS hết hạn bổ nhiệm năm 2027&quot;"
+                             Text="{Binding NaturalQuery, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding ParseNaturalQueryCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <Button x:Name="ParseQueryButton" Grid.Row="1" Grid.Column="1" Margin="10,8,6,0" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ParseNaturalQueryCommand}" Content="Tạo bộ lọc" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Margin="0,8,0,0" VerticalAlignment="Center" Style="{StaticResource Muted}"
+                               Text="{Binding AiModeText}" TextTrimming="CharacterEllipsis" MaxWidth="190"
+                               ToolTip="Cấu hình AI trong Cài đặt. Không có AI, phần mềm dùng bộ phân tích từ khóa offline." />
+                </Grid>
+            </Border>
+
+            <!-- ===== Filter builder ===== -->
+            <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,10,0,0">
+                <Expander IsExpanded="{Binding IsFilterExpanded}">
+                    <Expander.Header>
+                        <TextBlock Text="{Binding RulesHeader}" Style="{StaticResource SectionTitle}" />
+                    </Expander.Header>
+                    <StackPanel Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Điều kiện kết hợp:" VerticalAlignment="Center" Style="{StaticResource Muted}" Margin="0,0,10,0" />
+                            <RadioButton Content="Thỏa TẤT CẢ (AND)" IsChecked="{Binding MatchAll}" Margin="0,0,16,0" VerticalContentAlignment="Center" />
+                            <RadioButton Content="Thỏa BẤT KỲ (OR)" IsChecked="{Binding MatchAll, Converter={StaticResource InverseBool}}" VerticalContentAlignment="Center" />
+                        </StackPanel>
+
+                        <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Rules}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:FilterRuleViewModel}">
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="220" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="240" />
+                                                <ColumnDefinition Width="44" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox ItemsSource="{x:Static vm:FilterRuleViewModel.Fields}" SelectedItem="{Binding Field}"
+                                                      DisplayMemberPath="Header" Margin="0,0,6,0" MaxDropDownHeight="420" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding Operators}" SelectedItem="{Binding SelectedOperator}" Margin="0,0,6,0" />
+
+                                            <ComboBox Grid.Column="2" IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True"
+                                                      ItemsSource="{Binding SuggestionList}" MaxDropDownHeight="360"
+                                                      Text="{Binding Value1, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                                                      Visibility="{Binding IsText, Converter={StaticResource VisibleIf}}" />
+                                            <TextBox Grid.Column="2" Text="{Binding Value1, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                                                     Visibility="{Binding IsNumber, Converter={StaticResource VisibleIf}}" />
+                                            <DatePicker Grid.Column="2" SelectedDate="{Binding Date1}"
+                                                        Visibility="{Binding IsDate, Converter={StaticResource VisibleIf}}" />
+
+                                            <TextBlock Grid.Column="3" Text="đến" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource Muted}"
+                                                       Visibility="{Binding ShowValue2, Converter={StaticResource VisibleIf}}" />
+                                            <TextBox Grid.Column="4" Text="{Binding Value2, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                                                     Visibility="{Binding ShowNumber2, Converter={StaticResource VisibleIf}}" />
+                                            <DatePicker Grid.Column="4" SelectedDate="{Binding Date2}"
+                                                        Visibility="{Binding ShowDate2, Converter={StaticResource VisibleIf}}" />
+
+                                            <Button Grid.Column="5" Style="{StaticResource IconButton}" Content="✕" Margin="8,0,0,0"
+                                                    Command="{Binding RemoveCommand}" ToolTip="Xóa điều kiện này" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <DockPanel Margin="0,10,0,0">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <TextBlock Text="Bộ lọc đã lưu:" VerticalAlignment="Center" Style="{StaticResource Muted}" Margin="0,0,6,0" />
+                                <ComboBox Width="240" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Name" Margin="0,0,6,0" />
+                                <Button Content="💾  Lưu bộ lọc" Command="{Binding SavePresetCommand}" ToolTip="Lưu các điều kiện hiện tại để dùng lại" />
+                                <Button Content="Xóa" Style="{StaticResource DangerButton}" Command="{Binding DeletePresetCommand}" Margin="0"
+                                        ToolTip="Xóa bộ lọc đã lưu đang chọn" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="➕  Thêm điều kiện" Command="{Binding AddRuleCommand}" />
+                                <Button Content="⟲  Xóa toàn bộ lọc" Command="{Binding ClearFiltersCommand}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </StackPanel>
+                </Expander>
+            </Border>
+
+            <!-- ===== Actions ===== -->
+            <DockPanel Grid.Row="2" Margin="0,10,0,0">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <CheckBox x:Name="OnePerPersonBox" Content="Mỗi cán bộ 1 dòng" IsChecked="{Binding OnePerPerson}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              ToolTip="Ẩn các dòng Lặp: mỗi cán bộ chỉ hiện dòng chức vụ chính (nếu dòng chính không thỏa bộ lọc thì hiện dòng chức vụ thỏa bộ lọc). Áp dụng cả khi xuất Excel." />
+                    <ToggleButton x:Name="ColumnsToggle" Padding="11,5" Content="▦  Cột hiển thị ▾" Background="White" BorderBrush="{StaticResource BorderBrush}" />
+                    <Popup IsOpen="{Binding IsChecked, ElementName=ColumnsToggle}" PlacementTarget="{Binding ElementName=ColumnsToggle}"
+                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                           Closed="OnColumnsPopupClosed">
+                        <Border Style="{StaticResource Card}" Margin="0,4,0,0" Width="300">
+                            <StackPanel>
+                                <TextBlock Text="Chọn cột hiển thị" Style="{StaticResource SectionTitle}" Margin="0,0,0,6" />
+                                <ScrollViewer MaxHeight="440" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Columns}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ColumnOption}">
+                                                <CheckBox Content="{Binding Field.Header}" IsChecked="{Binding IsVisible}" Margin="0,2" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource PrimaryButton}" Content="➕  Thêm cán bộ" Command="{Binding AddRecordCommand}" ToolTip="Nhập thủ công (Ctrl+N)" />
+                    <Button Content="✎  Sửa" Command="{Binding EditRecordCommand}" ToolTip="Sửa dòng đang chọn (Enter / nhấp đúp)" />
+                    <Button Content="⇄  Đã thôi / Khôi phục" Command="{Binding ToggleFormerCommand}"
+                            ToolTip="Chuyển các dòng đang chọn sang mục &quot;Thôi giữ chức vụ&quot; (hoặc khôi phục)" />
+                    <Button Content="🗑  Xóa" Style="{StaticResource DangerButton}" Command="{Binding DeleteRecordsCommand}" ToolTip="Xóa các dòng đang chọn (Delete)" />
+                    <Button Style="{StaticResource DropZoneButton}" Command="{Binding ImportDecisionCommand}" ToolTip="Phần mềm tự đọc quyết định và đề xuất thêm / cập nhật dòng chức vụ (Ctrl+D)">
+                        <TextBlock>
+                            <Run Text="📄  Kéo thả Quyết định (PDF / Word) vào đây" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" />
+                            <Run Text=" hoặc bấm để chọn" Foreground="{StaticResource MutedBrush}" />
+                        </TextBlock>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ===== List & statistics ===== -->
+            <TabControl Grid.Row="3" Margin="0,10,0,0" Padding="0" Background="White" BorderBrush="{StaticResource BorderBrush}">
+                <TabItem Header="  Danh sách  ">
+                    <Grid>
+                        <DataGrid x:Name="StaffGrid" ItemsSource="{Binding View}" SelectedItem="{Binding SelectedRecord}"
+                                  BorderThickness="0" MouseDoubleClick="OnGridDoubleClick" SelectionChanged="OnGridSelectionChanged"
+                                  PreviewKeyDown="OnGridKeyDown">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFormer}" Value="True">
+                                            <Setter Property="Foreground" Value="#9A6700" />
+                                            <Setter Property="FontStyle" Value="Italic" />
+                                            <Setter Property="ToolTip" Value="Đã thôi giữ chức vụ" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Sửa…" Command="{Binding EditRecordCommand}" />
+                                    <MenuItem Header="Chuyển sang Đã thôi / Khôi phục" Command="{Binding ToggleFormerCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Xóa" Command="{Binding DeleteRecordsCommand}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding HasData, Converter={StaticResource VisibleIf}, ConverterParameter=Invert}">
+                            <TextBlock Text="📂" FontSize="40" HorizontalAlignment="Center" />
+                            <TextBlock Text="Chưa có dữ liệu" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,6,0,4" />
+                            <TextBlock Text="Bấm &quot;Nhập Excel&quot; hoặc kéo thả tệp danh sách (.xlsx) vào cửa sổ này." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
+                            <Button Content="📥  Nhập Excel" Style="{StaticResource PrimaryButton}" Command="{Binding ImportExcelCommand}" Margin="0,12,0,0" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="  Thống kê  ">
+                    <Grid Margin="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,20,0">
+                            <TextBlock Text="Thống kê theo" Style="{StaticResource FormLabel}" />
+                            <ComboBox ItemsSource="{Binding StatOptions}" SelectedItem="{Binding StatOption}" MaxDropDownHeight="420" />
+                            <CheckBox Content="Đếm theo cán bộ (mỗi người 1 lần)" IsChecked="{Binding StatCountPeople}" Margin="0,12,0,0" />
+                            <TextBlock TextWrapping="Wrap" Style="{StaticResource Muted}" Margin="0,12,0,0"
+                                       Text="Số liệu được tính trên danh sách đang lọc (ô tìm kiếm, mục hiển thị và bộ lọc nâng cao). Với các mục theo chức vụ (Chức vụ, Đơn vị, Cấp BN…) luôn đếm theo dòng chức vụ." />
+                        </StackPanel>
+                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding StatRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StatRow}">
+                                        <Grid Margin="0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="320" />
+                                                <ColumnDefinition Width="320" />
+                                                <ColumnDefinition Width="60" />
+                                                <ColumnDefinition Width="70" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Value}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" Height="14" HorizontalAlignment="Left" CornerRadius="3" Background="{StaticResource PrimaryBrush}"
+                                                    Width="{Binding Percent, Converter={StaticResource PercentToWidth}, ConverterParameter=310}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Count}" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding PercentText}" Style="{StaticResource Muted}" TextAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+
+            <!-- ===== Sheet tabs (like Excel): the two sections of the list ===== -->
+            <DockPanel Grid.Row="4">
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Style="{StaticResource Muted}"
+                           Text="Ctrl+PageUp / Ctrl+PageDown để chuyển trang" />
+                <ListBox x:Name="SheetTabs" ItemsSource="{Binding Sections}" SelectedItem="{Binding Section}"
+                         Background="Transparent" BorderThickness="0" Padding="0" Margin="8,-1,0,0"
+                         ItemContainerStyle="{StaticResource SheetTab}" HorizontalAlignment="Left"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Once">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:SectionOption}">
+                            <TextBlock>
+                                <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding Count, Mode=OneWay}"
+                                    Foreground="{StaticResource MutedBrush}" FontWeight="Normal" />
+                            </TextBlock>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

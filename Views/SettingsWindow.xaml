@@ -1,0 +1,110 @@
+<Window x:Class="StaffManagement.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:StaffManagement.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:SettingsViewModel}"
+        Title="Cài đặt" Width="700" SizeToContent="Height" MaxHeight="{x:Static SystemParameters.MaximizedPrimaryScreenHeight}" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Style="{StaticResource AppWindow}">
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="16">
+        <!-- AI -->
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="Trợ lý AI (không bắt buộc)" Style="{StaticResource SectionTitle}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,8"
+                           Text="Dùng AI để hiểu câu hỏi tự do và đọc các quyết định có cách viết lạ. Không bật AI, phần mềm vẫn hoạt động đầy đủ bằng bộ phân tích offline. Lưu ý: khi bật, nội dung câu hỏi / quyết định sẽ được gửi tới máy chủ AI đã chọn (trừ Ollama chạy trên máy)." />
+                <CheckBox Content="Bật AI" IsChecked="{Binding LlmEnabled}" FontWeight="SemiBold" />
+                <Grid Margin="0,8,0,0" IsEnabled="{Binding LlmEnabled}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Nhà cung cấp" VerticalAlignment="Center" Style="{StaticResource Muted}" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Providers}" SelectedItem="{Binding SelectedProvider}" Margin="0,3" />
+                    <TextBlock Grid.Row="1" Text="Địa chỉ API" VerticalAlignment="Center" Style="{StaticResource Muted}" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" />
+                    <TextBlock Grid.Row="2" Text="Model" VerticalAlignment="Center" Style="{StaticResource Muted}" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" />
+                    <TextBlock Grid.Row="3" Text="API key" VerticalAlignment="Center" Style="{StaticResource Muted}" />
+                    <PasswordBox Grid.Row="3" Grid.Column="1" x:Name="ApiKeyBox" Padding="5,4" Margin="0,3" PasswordChanged="OnApiKeyChanged" />
+                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="Kiểm tra kết nối" Command="{Binding TestCommand}" />
+                        <TextBlock Text="{Binding TestResult}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="380" Style="{StaticResource Muted}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Reminders -->
+        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+            <StackPanel>
+                <TextBlock Text="Nhắc hạn chức vụ" Style="{StaticResource SectionTitle}" />
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <TextBlock Text="Bắt đầu nhắc trước" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding ReminderLeadDays, UpdateSourceTrigger=PropertyChanged}" Width="55" Margin="8,0" TextAlignment="Center" />
+                    <TextBlock Text="ngày, nhắc lại mỗi" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding ReminderIntervalDays, UpdateSourceTrigger=PropertyChanged}" Width="45" Margin="8,0" TextAlignment="Center" />
+                    <TextBlock Text="ngày (đếm ngược)" VerticalAlignment="Center" />
+                </StackPanel>
+                <CheckBox Content="Tính cả thời điểm nghỉ hưu (chức vụ kết thúc khi cán bộ nghỉ hưu)" IsChecked="{Binding IncludeRetirement}" Margin="0,8,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <CheckBox x:Name="DailyCheckBox" Content="Tự động kiểm tra hằng ngày lúc" IsChecked="{Binding DailyCheckEnabled}" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding DailyCheckTime, UpdateSourceTrigger=PropertyChanged}" Width="60" Margin="8,0" TextAlignment="Center"
+                             IsEnabled="{Binding DailyCheckEnabled}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="22,4,0,0"
+                           Text="Dùng Task Scheduler của Windows: thông báo hiện ở góc màn hình kể cả khi chưa mở phần mềm (chỉ khi đến mốc nhắc mới). Không chạy ngầm, không tốn bộ nhớ." />
+                <TextBlock Text="{Binding ReminderError}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                           Visibility="{Binding ReminderError, Converter={StaticResource VisibleIf}}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Export -->
+        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+            <StackPanel>
+                <TextBlock Text="Tiêu đề khi xuất Excel" Style="{StaticResource SectionTitle}" />
+                <TextBlock Text="Tên cơ quan (dòng 1)" Style="{StaticResource FormLabel}" />
+                <TextBox Text="{Binding Organization, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="Tiêu đề danh sách (dòng 2 — ngày xuất được tự động thêm vào cuối)" Style="{StaticResource FormLabel}" />
+                <TextBox Text="{Binding ListTitle, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Data -->
+        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+            <StackPanel>
+                <TextBlock Text="Dữ liệu" Style="{StaticResource SectionTitle}" />
+                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,8">
+                    <Run Text="Cơ sở dữ liệu lưu tại: " /><Run Text="{Binding DataFolder, Mode=OneWay}" FontWeight="SemiBold" />
+                    <LineBreak /><Run Text="Phần mềm tự sao lưu trước mỗi lần nhập Excel, xóa hoặc khôi phục (thư mục backups, giữ 20 bản gần nhất)." />
+                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="📁  Mở thư mục dữ liệu" Command="{Binding OpenDataFolderCommand}" />
+                    <Button Content="💾  Sao lưu ngay…" Command="{Binding BackupCommand}" />
+                    <Button Content="♻  Khôi phục từ bản sao lưu…" Style="{StaticResource DangerButton}" Command="{Binding RestoreCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Lưu" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" MinWidth="90" />
+            <Button Content="Đóng" Command="{Binding CancelCommand}" MinWidth="80" Margin="0" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

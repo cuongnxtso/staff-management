@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the notification-area icon (TrayNotifier); WinForms is loaded lazily when a reminder is shown. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>StaffManagement</AssemblyName>
+    <Product>Quản lý cán bộ lãnh đạo, quản lý</Product>
+    <Version>1.0.0</Version>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Publishing for low-end PCs: dotnet publish StaffManagement.csproj -c Release -r win-x64
+       WPF does not support trimming / Native AOT, so we use single-file + ReadyToRun.
+       Compression is off on purpose: a compressed single file is ~69 MB but is unpacked into RAM
+       (≈186 MB private memory vs ≈108 MB uncompressed, measured with 291 rows). RAM matters more than disk here. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Avoid WPF / WinForms name clashes (Application, MessageBox, Button…): WinForms types are referenced explicitly. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Dapper" Version="2.1.89" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+  </ItemGroup>
+
+</Project>

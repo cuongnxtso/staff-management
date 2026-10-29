@@ -1,0 +1,105 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using StaffManagement.Models;
+using StaffManagement.ViewModels;
+
+namespace StaffManagement.Views;
+
+public partial class MainWindow : Window
+{
+    public MainWindow()
+    {
+        InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            BuildColumns();
+            QuickSearchBox.Focus();
+        };
+    }
+
+    private MainViewModel Vm => (MainViewModel)DataContext;
+
+    /// <summary>Grid columns are generated from the field catalog; visibility follows the "Cột hiển thị" toggles.</summary>
+    private void BuildColumns()
+    {
+        var visibleIf = (IValueConverter)FindResource("VisibleIf");
+        var checkMark = (IValueConverter)FindResource("CheckMark");
+        var cellStyle = (Style)FindResource("CellText");
+
+        StaffGrid.Columns.Clear();
+        foreach (var option in Vm.Columns)
+        {
+            var f = option.Field;
+            var binding = new Binding(f.Key) { Mode = BindingMode.OneWay };
+            if (f.Kind == FieldKind.Date) binding.StringFormat = "dd/MM/yyyy";
+            if (f.Kind == FieldKind.Bool) binding.Converter = checkMark;
+
+            var elementStyle = new Style(typeof(TextBlock), cellStyle);
+            if (f.Kind is FieldKind.Number or FieldKind.Bool or FieldKind.Date)
+                elementStyle.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
+
+            var column = new DataGridTextColumn
+            {
+                Header = f.Header,
+                Binding = binding,
+                SortMemberPath = f.Key,
+                // Wide enough for the header text (≈7.5 px per character + sort arrow / padding)
+                Width = new DataGridLength(Math.Max(f.Width, f.Header.Length * 7.5 + 22)),
+                ElementStyle = elementStyle,
+            };
+            BindingOperations.SetBinding(column, DataGridColumn.VisibilityProperty,
+                new Binding(nameof(ColumnOption.IsVisible)) { Source = option, Converter = visibleIf });
+            StaffGrid.Columns.Add(column);
+        }
+    }
+
+    private void OnGridSelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        Vm.SelectedRecords = StaffGrid.SelectedItems.OfType<StaffRecord>().ToList();
+
+    private void OnGridDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        // Only react to double-clicks on a row (not on headers / scrollbars).
+        for (var d = e.OriginalSource as DependencyObject; d is not null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is DataGridRow { Item: StaffRecord record })
+            {
+                Vm.EditRecordCommand.Execute(record);
+                return;
+            }
+            if (d is DataGridColumnHeader) return;
+        }
+    }
+
+    private void OnGridKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Enter:
+                Vm.EditRecordCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Delete:
+                Vm.DeleteRecordsCommand.Execute(null);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void OnColumnsPopupClosed(object? sender, EventArgs e) => ColumnsToggle.IsChecked = false;
+
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+            await Vm.HandleDroppedFilesAsync(files);
+    }
+}

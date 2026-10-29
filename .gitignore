@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+publish/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local data (the app stores its database in %LOCALAPPDATA%\StaffManagement; never commit staff data)
+*.db
+*.db-journal
+*.xlsx
+*.pdf

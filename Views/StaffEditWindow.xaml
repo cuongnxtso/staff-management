@@ -1,0 +1,80 @@
+<Window x:Class="StaffManagement.Views.StaffEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:StaffManagement.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:StaffEditViewModel}"
+        Title="{Binding WindowTitle}" Width="780" Height="640" MinWidth="600" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Style="{StaticResource AppWindow}">
+    <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <DockPanel Margin="14">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <CheckBox Content="Đã thôi giữ chức vụ (đưa vào mục &quot;THÔI GIỮ CHỨC VỤ LÃNH ĐẠO QUẢN LÝ&quot;)" IsChecked="{Binding IsFormer}" />
+            <TextBlock Text="{Binding ComputedInfo}" Style="{StaticResource Muted}" Margin="0,6,0,0"
+                       Visibility="{Binding ComputedInfo, Converter={StaticResource VisibleIf}}" />
+        </StackPanel>
+
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Left" Content="🧮  Tính thời điểm nghỉ hưu" Command="{Binding SuggestRetirementCommand}"
+                    ToolTip="Theo NĐ 135/2020/NĐ-CP từ Ngày sinh và Giới (có thể sửa lại cho trường hợp đặc biệt)" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Lưu" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" MinWidth="90" IsDefault="False" />
+                <Button Content="Hủy" Command="{Binding CancelCommand}" MinWidth="80" Margin="0" />
+            </StackPanel>
+            <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center"
+                       TextWrapping="Wrap" Margin="10,0" />
+        </DockPanel>
+
+        <TabControl ItemsSource="{Binding Groups}" Background="White">
+            <TabControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:EditorGroup}">
+                    <TextBlock Text="{Binding Header}" Margin="6,2" />
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate DataType="{x:Type vm:EditorGroup}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,6">
+                        <ItemsControl ItemsSource="{Binding Editors}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:FieldEditorViewModel}">
+                                    <StackPanel x:Name="cell" Width="340" Margin="0,0,16,4">
+                                        <TextBlock Text="{Binding Field.Header}" Style="{StaticResource FormLabel}" />
+                                        <ComboBox IsEditable="True" IsTextSearchEnabled="True" ItemsSource="{Binding Suggestions}"
+                                                  Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" MaxDropDownHeight="320"
+                                                  Visibility="{Binding IsText, Converter={StaticResource VisibleIf}}" />
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
+                                                 MinHeight="52" VerticalContentAlignment="Top"
+                                                 Visibility="{Binding IsMultiline, Converter={StaticResource VisibleIf}}" />
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                                 Visibility="{Binding IsNumber, Converter={StaticResource VisibleIf}}" />
+                                        <DatePicker SelectedDate="{Binding Date}"
+                                                    Visibility="{Binding IsDate, Converter={StaticResource VisibleIf}}" />
+                                        <CheckBox Content="Có" IsChecked="{Binding Flag}" Margin="0,4,0,0"
+                                                  Visibility="{Binding IsBool, Converter={StaticResource VisibleIf}}" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsMultiline}" Value="True">
+                                            <Setter TargetName="cell" Property="Width" Value="696" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </DockPanel>
+</Window>
