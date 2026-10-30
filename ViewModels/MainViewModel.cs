@@ -157,6 +157,20 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenHelp() => _dialogs.ShowHelp();
 
+    /// <summary>First start on this data: point the user at the manual, once.</summary>
+    public void OfferHelpOnFirstStart()
+    {
+        if (_settings.HelpOffered) return;
+        _settings.HelpOffered = true;
+        if (_dialogs.Confirm(
+                "Chào mừng bạn đến với phần mềm Quản lý cán bộ lãnh đạo, quản lý!\n\n" +
+                "Phần mềm có sẵn Hướng dẫn sử dụng: từng bước cho mỗi chức năng kèm mẹo, tìm được không cần gõ dấu.\n\n" +
+                "Mở Hướng dẫn ngay bây giờ?\n\n" +
+                "(Có thể mở lại bất cứ lúc nào bằng nút  ?  ở góc trên bên phải, hoặc phím F1.)",
+                "Lần đầu sử dụng"))
+            _dialogs.ShowHelp();
+    }
+
     // ------------------------------------------------------------------ Loading & filtering
 
     private void Reload()

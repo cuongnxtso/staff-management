@@ -82,6 +82,8 @@ public partial class App : Application
             MainWindow.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => vm.OpenRemindersCommand.Execute(null));
         else if (args.Count > 0)
             _ = vm.HandleDroppedFilesAsync(args.Where(File.Exists).ToArray());
+        else
+            MainWindow.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, vm.OfferHelpOnFirstStart);
     }
 
     /// <summary>

@@ -59,6 +59,7 @@ You can pass a file on the command line, or drop it on the window:
     (its date in ngày QĐ BN Cũ 3). See `DecisionApplier.ShiftIntoClientColumns`.
 14. **? / F1 – Hướng dẫn**: the in-app manual (steps and tips per feature, search without accents). It stays open beside the list.
     The text lives in `ViewModels/HelpViewModel.cs`; update it when a feature changes.
+    The first start on a data folder asks once whether to open it (setting `App.HelpOffered`).
 15. Grid shortcuts: double-click or Enter edits, Delete deletes. *Đã thôi / Khôi phục* moves rows between the two sections.
 
 ## Data & settings
