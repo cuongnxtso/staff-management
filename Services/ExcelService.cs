@@ -9,6 +9,8 @@ public sealed class ExcelImportResult
     public List<string> Warnings { get; } = [];
     public string? OrganizationName { get; set; }
     public string? Title { get; set; }
+    /// <summary>Field keys in the file's column order, so an export can use the same layout.</summary>
+    public List<string> ColumnOrder { get; } = [];
     public int ActiveCount => Records.Count(r => !r.IsFormer);
     public int FormerCount => Records.Count(r => r.IsFormer);
 }
@@ -46,6 +48,9 @@ public static partial class ExcelService
         var (map, extras) = MapColumns(sheet, headerRow, twoLevel, result.Warnings);
         if (!map.ContainsKey(nameof(StaffRecord.FullName)))
             throw new InvalidDataException("Không xác định được cột \"Họ và tên\".");
+        result.ColumnOrder.AddRange(map.Select(m => (Col: m.Value, m.Key))
+            .Concat(extras.Select(e => (e.Col, Key: FieldCatalog.ExtraKey(e.Header))))
+            .OrderBy(x => x.Col).Select(x => x.Key));
 
         int nameCol = map[nameof(StaffRecord.FullName)];
         bool former = false;
@@ -150,10 +155,11 @@ public static partial class ExcelService
             var t = VietnameseText.Normalize(f.ExcelTop);
             var s = VietnameseText.Normalize(f.ExcelSub);
             var h = VietnameseText.Normalize(f.Header);
+            var a = VietnameseText.Normalize(f.ExcelAlias);
             for (int c = 1; c <= maxCol; c++)
             {
                 if (used.Contains(c)) continue;
-                bool match = (top[c] == t && sub[c] == s) || (sub[c].Length == 0 && top[c].Length > 0 && top[c] == h);
+                bool match = (top[c] == t && sub[c] == s) || (sub[c].Length == 0 && top[c].Length > 0 && (top[c] == h || top[c] == a));
                 if (!match) continue;
                 map[f.Key] = c;
                 used.Add(c);
@@ -191,6 +197,21 @@ public static partial class ExcelService
     }
 
     // ------------------------------------------------------------------ Export
+
+    /// <summary>
+    /// The columns in the order of the last imported file. Columns the file did not have go to the end;
+    /// with <paramref name="dropEmpty"/> they are left out when no row has a value in them.
+    /// </summary>
+    public static List<FieldDefinition> InFileOrder(IEnumerable<FieldDefinition> columns, IReadOnlyList<string>? order,
+        IReadOnlyCollection<StaffRecord> rows, bool dropEmpty)
+    {
+        if (order is null) return columns.ToList();
+        var position = order.Select((key, i) => (key, i)).ToDictionary(x => x.key, x => x.i);
+        return columns
+            .Where(f => !dropEmpty || position.ContainsKey(f.Key) || rows.Any(r => f.Get(r) is not (null or "" or false)))
+            .OrderBy(f => position.GetValueOrDefault(f.Key, int.MaxValue))
+            .ToList();
+    }
 
     public static void Export(string path, IEnumerable<StaffRecord> records, IReadOnlyList<FieldDefinition> columns,
         string? organization, string? title)

@@ -10,6 +10,7 @@ public sealed class SettingsStore(StaffRepository repo)
     private const string KeyOrganization = "Export.Organization";
     private const string KeyTitle = "Export.Title";
     private const string KeyColumns = "Grid.VisibleColumns";
+    private const string KeyColumnOrder = "Export.ColumnOrder";
     private const string KeyLlmEnabled = "Llm.Enabled";
     private const string KeyLlmEndpoint = "Llm.Endpoint";
     private const string KeyLlmModel = "Llm.Model";
@@ -31,6 +32,13 @@ public sealed class SettingsStore(StaffRepository repo)
     {
         get => repo.GetSetting(KeyColumns)?.Split(',', StringSplitOptions.RemoveEmptyEntries);
         set => repo.SetSetting(KeyColumns, value is null ? null : string.Join(",", value));
+    }
+
+    /// <summary>Field keys in the column order of the last Excel file imported with "replace".</summary>
+    public IReadOnlyList<string>? ExportColumnOrder
+    {
+        get => repo.GetSetting(KeyColumnOrder)?.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        set => repo.SetSetting(KeyColumnOrder, value is null ? null : string.Join(",", value));
     }
 
     public ReminderSettings LoadReminders() => new()

@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
@@ -59,6 +61,18 @@ public partial class App : Application
             return;
         }
 
+        // Two windows on the same data overwrite each other's changes (each keeps its own copy of the list).
+        if (IsAlreadyOpen(repo.DataFolder)
+            && MessageBox.Show(
+                "Phần mềm đang được mở ở một cửa sổ khác.\n\n" +
+                "Mở 2 cửa sổ cùng lúc có thể làm mất thay đổi: mỗi cửa sổ không thấy những gì cửa sổ kia vừa sửa.\n\n" +
+                "• Có: vẫn mở thêm cửa sổ mới\n• Không: thoát, dùng cửa sổ đang mở",
+                "Phần mềm đang mở", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            Shutdown(0);
+            return;
+        }
+
         var dialogs = new DialogService();
         var vm = new MainViewModel(repo, new SettingsStore(repo), dialogs);
         MainWindow = new MainWindow { DataContext = vm };
@@ -114,6 +128,20 @@ public partial class App : Application
         lifetime.Tick += (_, _) => Exit();
         lifetime.Start();
         tray.Show($"Nhắc hạn chức vụ – {due.Count} mục đến mốc nhắc", ReminderService.Summary(due, 3));
+    }
+
+    private static Mutex? _instanceMutex; // held while the app runs
+
+    /// <summary>
+    /// Whether a window of this app (any copy from v1.2 on, whatever the exe is called) already uses this data folder.
+    /// ponytail: v1.0 / v1.1 don't create the mutex, so an open window of those versions is not detected.
+    /// </summary>
+    private static bool IsAlreadyOpen(string dataFolder)
+    {
+        var path = Path.GetFullPath(dataFolder).TrimEnd('\\').ToUpperInvariant();
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(path)))[..16];
+        _instanceMutex = new Mutex(true, @"Local\StaffManagement-" + key, out bool createdNew);
+        return !createdNew;
     }
 
     private static bool TakeFlag(List<string> args, string flag)

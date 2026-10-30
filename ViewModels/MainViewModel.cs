@@ -538,6 +538,7 @@ public partial class MainViewModel : ObservableObject
             _repo.InsertMany(result.Records, replace);
             if (result.OrganizationName is not null) _settings.Organization = result.OrganizationName;
             if (result.Title is not null) _settings.Title = result.Title;
+            if (replace || _settings.ExportColumnOrder is null) _settings.ExportColumnOrder = result.ColumnOrder;
         }
         catch (Exception ex)
         {
@@ -569,16 +570,17 @@ public partial class MainViewModel : ObservableObject
         int active = rows.Count(r => !r.IsFormer), former = rows.Count - active;
         var allColumns = _dialogs.YesNoCancel(
             $"Xuất {active} dòng \"Đang giữ chức vụ\" và {former} dòng \"Thôi giữ chức vụ\" (theo bộ lọc hiện tại).\n\n" +
-            "• Có: đủ các cột theo MẪU gốc (có thể nhập lại vào phần mềm)\n• Không: chỉ các cột đang hiển thị",
+            "• Có: đủ các cột, đúng vị trí cột như tệp Excel đã nhập (có thể nhập lại vào phần mềm)\n• Không: chỉ các cột đang hiển thị",
             "Xuất Excel");
         if (allColumns is null) return;
 
         var path = _dialogs.SaveFile("Xuất danh sách ra Excel", ExcelFilter, $"DanhSach_LDQL_{DateTime.Today:yyyyMMdd}.xlsx");
         if (path is null) return;
 
-        IReadOnlyList<FieldDefinition> columns = allColumns.Value
-            ? [.. FieldCatalog.ExcelFields, .. FieldCatalog.Extras]
-            : Columns.Where(c => c.IsVisible).Select(c => c.Field).ToList();
+        var columns = ExcelService.InFileOrder(allColumns.Value
+                ? [.. FieldCatalog.ExcelFields, .. FieldCatalog.Extras]
+                : Columns.Where(c => c.IsVisible).Select(c => c.Field),
+            _settings.ExportColumnOrder, rows, dropEmpty: allColumns.Value);
         try
         {
             ExcelService.Export(path, rows, columns, _settings.Organization, _settings.Title);

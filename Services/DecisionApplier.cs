@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using StaffManagement.Models;
 
 namespace StaffManagement.Services;
@@ -5,7 +6,7 @@ namespace StaffManagement.Services;
 public enum DecisionAction { AddNew, UpdateRow, MoveToFormer }
 
 /// <summary>Turns an extracted decision into a new row / an update of an existing row.</summary>
-public static class DecisionApplier
+public static partial class DecisionApplier
 {
     /// <summary>
     /// Rows of the same person: by Mã CB when the decision gives one, otherwise same name (accent-insensitive)
@@ -132,6 +133,11 @@ public static class DecisionApplier
     {
         var number = old.DecisionNumber?.Trim();
         if (string.IsNullOrEmpty(number)) return;
+        if (ClientHistoryHeaders() is { } headers)
+        {
+            ShiftIntoClientColumns(r, old, number, headers);
+            return;
+        }
         var listed = (r.PreviousDecisions ?? "").Split(';', StringSplitOptions.TrimEntries)
             .Any(e => e.Equals(number, StringComparison.OrdinalIgnoreCase) || e.StartsWith(number + " ", StringComparison.OrdinalIgnoreCase));
         if (listed) return;
@@ -140,6 +146,48 @@ public static class DecisionApplier
                     + (old.AppointYear is { } y ? $" (BN {y}{(old.AppointExpiryYear is { } e ? $"–{e}" : "")})" : "");
         r.PreviousDecisions = string.IsNullOrWhiteSpace(r.PreviousDecisions) ? entry : $"{r.PreviousDecisions}; {entry}";
     }
+
+    // The client's own old-QĐ columns (V–Z in their list), kept as extra columns. The newest old QĐ is in "cũ1", its date
+    // in "cũ2" (despite the name; a few rows hold an older QĐ there) and its issuer in "Đơn vị BN (cũ)". Older ones pile up
+    // in "cũ 3", oldest first, with the newest of their dates in "ngày QĐ BN Cũ 3".
+    private static readonly string[] ClientHistoryColumns =
+        ["Số QĐ bổ nhiệm (cũ1)", "Số QĐ bổ nhiệm (cũ2)", "Đơn vị BN (cũ)", "Số QĐ bổ nhiệm (cũ 3)", "ngày QĐ BN Cũ 3"];
+
+    private static string[]? ClientHistoryHeaders()
+    {
+        static string Key(string? h) => VietnameseText.Normalize(h).Replace(" ", "");
+        var headers = ClientHistoryColumns.Select(c => FieldCatalog.Extras.FirstOrDefault(f => Key(f.Header) == Key(c))?.Header)
+            .OfType<string>().ToArray();
+        return headers.Length == ClientHistoryColumns.Length ? headers : null;
+    }
+
+    /// <summary>cũ1 moves down to cũ 3, then the replaced QĐ becomes cũ1.</summary>
+    private static void ShiftIntoClientColumns(StaffRecord r, StaffRecord old, string number, string[] h)
+    {
+        string? no1 = r.GetExtra(h[0]), date1 = r.GetExtra(h[1]), no3 = r.GetExtra(h[3]), date3 = r.GetExtra(h[4]);
+        if (Mentions(no1, number) || Mentions(date1, number) || Mentions(no3, number)) return;
+        bool date1IsDate = !string.IsNullOrWhiteSpace(no1) && DateOnlyRegex().IsMatch(date1 ?? "");
+        var moved = new[] { date1IsDate ? null : date1, no1 }.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        if (moved.Count > 0)
+        {
+            var older = string.IsNullOrWhiteSpace(date3) || (no3 ?? "").Contains(date3.Trim()) ? no3 : $"{no3} ngày {date3}".Trim();
+            r.SetExtra(h[3], string.Join("; ", new[] { older }.Concat(moved).Where(t => !string.IsNullOrWhiteSpace(t))));
+            r.SetExtra(h[4], date1IsDate ? date1 : DateRegex().Matches(no1 ?? "").LastOrDefault()?.Value);
+        }
+        r.SetExtra(h[0], number);
+        r.SetExtra(h[1], old.DecisionDate?.ToString("dd/MM/yyyy"));
+        r.SetExtra(h[2], old.AppointingUnit);
+    }
+
+    /// <summary>Whether a free-text cell already lists this QĐ number ("12/QĐ" is not in "112/QĐ-ĐHYHN").</summary>
+    private static bool Mentions(string? text, string number) =>
+        Regex.IsMatch(VietnameseText.Normalize(text), $@"(?<![\p{{L}}\d]){Regex.Escape(VietnameseText.Normalize(number))}(?![\p{{L}}\d&-])");
+
+    [GeneratedRegex(@"^\s*'?\d{1,2}/\d{1,2}/\d{4,5}\s*$")]
+    private static partial Regex DateOnlyRegex();
+
+    [GeneratedRegex(@"(?<!\d)\d{1,2}/\d{1,2}/\d{4}")]
+    private static partial Regex DateRegex();
 
     public static void MoveToFormer(StaffRecord r, DecisionInfo info)
     {

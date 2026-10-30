@@ -14,6 +14,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Several copies may be kept on one PC: show which version this is.
+        Title += $" – v{typeof(App).Assembly.GetName().Version?.ToString(3)}";
         Loaded += (_, _) =>
         {
             BuildColumns();

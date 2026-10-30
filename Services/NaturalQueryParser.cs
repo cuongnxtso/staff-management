@@ -6,8 +6,8 @@ namespace StaffManagement.Services;
 /// <summary>
 /// Offline keyword parser for common Vietnamese questions, e.g.
 /// "nữ từ 40 đến 50 tuổi là đảng viên", "nam trên 55 tuổi PGS", "nghỉ hưu năm nay",
-/// "trưởng bộ môn thuộc khoa Y học cổ truyền", "hết hạn bổ nhiệm năm 2027".
-/// Accents are optional. Produces the same rules as the filter builder.
+/// "trưởng bộ môn thuộc khoa Y học cổ truyền", "hết hạn bổ nhiệm năm 2027", and "&lt;column name&gt; &lt;value&gt;"
+/// for any column, including the ones added in Excel ("Dân tộc Tày"). Accents are optional. Produces the same rules as the filter builder.
 /// </summary>
 public static partial class NaturalQueryParser
 {
@@ -15,6 +15,7 @@ public static partial class NaturalQueryParser
     {
         var set = new FilterSet();
         if (string.IsNullOrWhiteSpace(query)) return set;
+        query = TakeColumnConditions(query, set.Rules);
 
         var lower = query.Trim().ToLowerInvariant();         // keeps accents: "nam" (male) ≠ "năm" (year)
         var n = VietnameseText.Canonical(query);              // accent-free, abbreviations expanded
@@ -38,6 +39,16 @@ public static partial class NaturalQueryParser
                 Add(nameof(StaffRecord.Age), amax.Groups["lt"].Success ? FilterOperator.LessThan : FilterOperator.LessOrEqual,
                     amax.Groups["lt"].Success ? amax.Groups["lt"].Value : amax.Groups["le"].Value);
         }
+
+        // Birth year: "sinh năm 1970", "sinh trước 1970", "sinh từ 1975"
+        if (BornYear().Match(n) is { Success: true } by)
+            Add(nameof(StaffRecord.BirthYear), by.Groups["op"].Value switch
+            {
+                "truoc" => FilterOperator.LessThan,
+                "sau" => FilterOperator.GreaterThan,
+                "tu" => FilterOperator.GreaterOrEqual,
+                _ => FilterOperator.Equals,
+            }, by.Groups["y"].Value);
 
         // Party membership
         if (n.Contains("dang vien"))
@@ -96,10 +107,115 @@ public static partial class NaturalQueryParser
         if (Department().Match(lower) is { Success: true } dm)
         {
             var dept = LeadingUnitWord().Replace(dm.Groups[1].Value, "").Trim(' ', ',', '.');
-            if (dept.Length > 1) Add(nameof(StaffRecord.Department), FilterOperator.Contains, dept);
+            // "thuộc Khoa Y học cổ truyền" also means its constituent units ("YHCT - BM …").
+            if (UnitHierarchy.ParentNamed(dept) is { } parent) Add(nameof(StaffRecord.ParentUnit), FilterOperator.Equals, parent);
+            else if (dept.Length > 1) Add(nameof(StaffRecord.Department), FilterOperator.Contains, dept);
         }
         return set;
     }
+
+    // Columns whose names are common words in questions ("giữ chức vụ", "chưa là đảng viên", "trên 50 tuổi"):
+    // the keyword rules handle them.
+    private static readonly HashSet<string> NotByName =
+    [
+        nameof(StaffRecord.Stt), nameof(StaffRecord.Gender), nameof(StaffRecord.Age), nameof(StaffRecord.IsPartyMember),
+        nameof(StaffRecord.Position), nameof(StaffRecord.Department),
+    ];
+
+    // Other ways people name a column.
+    private static readonly Dictionary<string, string[]> Synonyms = new()
+    {
+        [nameof(StaffRecord.FullName)] = ["họ tên"],
+        [nameof(StaffRecord.StaffCode)] = ["mã cán bộ"],
+        [nameof(StaffRecord.PoliticalTheory)] = ["LLCT", "lý luận chính trị"],
+        [nameof(StaffRecord.DecisionNumber)] = ["số QĐ", "quyết định số"],
+        [nameof(StaffRecord.AppointingUnit)] = ["đơn vị bổ nhiệm"],
+        [nameof(StaffRecord.AppointingLevel)] = ["cấp bổ nhiệm"],
+        [nameof(StaffRecord.ProfessionalTitle)] = ["chức danh"],
+        [nameof(StaffRecord.Phone)] = ["số điện thoại", "SĐT"],
+    };
+
+    // Words that end a value: "dân tộc Tày | nữ | trên 50 tuổi".
+    private static readonly HashSet<string> ValueEnd =
+    [
+        "và", "va", "là", "la", "có", "co", "từ", "tu", "trên", "tren", "dưới", "duoi", "nam", "nữ", "nu", "sinh",
+        "đảng", "dang", "nghỉ", "nghi", "hết", "het", "tuổi", "tuoi", "thuộc", "thuoc", "tại", "tai", ",", ";",
+    ];
+
+    /// <summary>
+    /// Turns "&lt;column name&gt; &lt;value&gt;" into a rule for that column: "Dân tộc Tày", "mã CB TG1195", "năm sinh 1970",
+    /// "chức vụ cơ hữu" (no value: the tick column is not empty). Longer names win ("đơn vị cơ hữu" over "đơn vị").
+    /// Returns the rest of the question for the keyword rules.
+    /// </summary>
+    private static string TakeColumnConditions(string query, List<FilterRule> rules)
+    {
+        var words = query.Replace(",", " , ").Replace(";", " ; ")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var norm = words.Select(w => VietnameseText.Normalize(w)).ToList();
+        var names = FieldCatalog.All
+            .Where(f => f.Kind != FieldKind.Date && !NotByName.Contains(f.Key))
+            .SelectMany(f => new[] { f.Header, f.ExcelSub is null ? f.ExcelTop : null, f.ExcelAlias }
+                .Concat(Synonyms.GetValueOrDefault(f.Key) ?? [])
+                .Select(name => (Field: f, Words: VietnameseText.Normalize(name).Split(' ', StringSplitOptions.RemoveEmptyEntries))))
+            .Where(x => string.Concat(x.Words).Length >= 3)
+            .OrderByDescending(x => x.Words.Length).ThenByDescending(x => string.Concat(x.Words).Length)
+            .ToList();
+        (FieldDefinition Field, int Length)? NameAt(int i) =>
+            names.FirstOrDefault(x => i + x.Words.Length <= norm.Count && x.Words.SequenceEqual(norm.Skip(i).Take(x.Words.Length)))
+                is { Field: { } f, Words: var w } ? (f, w.Length) : null;
+
+        var rest = new List<string>();
+        for (int i = 0; i < words.Count;)
+        {
+            if (NameAt(i) is not ({ } field, var length))
+            {
+                rest.Add(words[i++]);
+                continue;
+            }
+            int end = i + length;
+            while (end < words.Count && !ValueEnd.Contains(words[end].ToLowerInvariant()) && NameAt(end) is null) end++;
+            var value = string.Join(" ", words.Skip(i + length).Take(end - i - length)).Trim('.', '?', '!', ' ');
+            // "chức danh nghề nghiệp hạng I": the value starts with another name of the same column.
+            if (value.Length == 0 && end < words.Count && NameAt(end)?.Field == field)
+            {
+                i = end;
+                continue;
+            }
+            if (ColumnRule(field, value) is not { } rule)
+            {
+                rest.Add(words[i++]);
+                continue;
+            }
+            rules.Add(rule);
+            i = end;
+        }
+        return string.Join(" ", rest);
+    }
+
+    private static FilterRule? ColumnRule(FieldDefinition field, string value)
+    {
+        var v = VietnameseText.Normalize(value);
+        FilterRule Rule(FilterOperator op, string? v1 = null) => new() { Field = field.Key, Operator = op, Value1 = v1 };
+        return field.Kind switch
+        {
+            FieldKind.Bool => v is "" or "x" ? Rule(FilterOperator.IsTrue) : v == "khong" ? Rule(FilterOperator.IsFalse) : null,
+            FieldKind.Number => int.TryParse(v, out var number) ? Rule(FilterOperator.Equals, number.ToString()) : null,
+            _ => v switch
+            {
+                "" or "x" => Rule(FilterOperator.IsNotEmpty),
+                "khong" or "trong" => Rule(FilterOperator.IsEmpty),
+                // "hạng I" must not match "(hạng II)".
+                _ when RomanRank().Match(v) is { Success: true } rank => Rule(FilterOperator.Contains, $"hang {rank.Groups[1].Value})"),
+                _ => Rule(FilterOperator.Contains, value),
+            },
+        };
+    }
+
+    [GeneratedRegex(@"^(?:\(?hang\s+)?(i{1,3}|iv)\)?$")]
+    private static partial Regex RomanRank();
+
+    [GeneratedRegex(@"\bsinh\s+(?:nam\s+)?(?:(?<op>truoc|sau|tu)\s+(?:nam\s+)?)?(?<y>(?:19|20)\d{2})\b")]
+    private static partial Regex BornYear();
 
     [GeneratedRegex(@"\b(nữ|nu)\b(?!\s*\d)")]
     private static partial Regex Female();

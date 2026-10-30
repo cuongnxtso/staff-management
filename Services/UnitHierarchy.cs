@@ -31,5 +31,13 @@ public static class UnitHierarchy
         return unit;
     }
 
+    /// <summary>The parent unit when <paramref name="name"/> is one of its names or abbreviations ("YHCT"), otherwise null.</summary>
+    public static string? ParentNamed(string? name)
+    {
+        var key = Key(name);
+        return key.Length == 0 ? null
+            : Parents.FirstOrDefault(p => Key(p.Parent) == key || p.Names.Any(n => Key(n) == key) || p.Prefixes.Any(x => Key(x) == key)).Parent;
+    }
+
     private static string Key(string? s) => VietnameseText.Normalize(s).Replace(" ", "");
 }
