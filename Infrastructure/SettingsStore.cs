@@ -41,6 +41,13 @@ public sealed class SettingsStore(StaffRepository repo)
         set => repo.SetSetting(KeyColumnOrder, value is null ? null : string.Join(",", value));
     }
 
+    /// <summary>Whether the first-start "open the manual?" question was asked for this data folder.</summary>
+    public bool HelpOffered
+    {
+        get => repo.GetSetting("App.HelpOffered") == "1";
+        set => repo.SetSetting("App.HelpOffered", value ? "1" : null);
+    }
+
     public ReminderSettings LoadReminders() => new()
     {
         LeadDays = int.TryParse(repo.GetSetting("Reminder.LeadDays"), out var lead) && lead > 0 ? lead : 100,
