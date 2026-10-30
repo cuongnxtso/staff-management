@@ -17,11 +17,22 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             BuildColumns();
+            Vm.ColumnsRebuilt += BuildColumns;
             QuickSearchBox.Focus();
         };
     }
 
     private MainViewModel Vm => (MainViewModel)DataContext;
+
+    private static readonly IValueConverter FieldValue = new FieldValueConverter();
+
+    private sealed class FieldValueConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+            value is StaffRecord r && parameter is FieldDefinition f ? f.Get(r) : null;
+        public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+            throw new NotSupportedException();
+    }
 
     /// <summary>Grid columns are generated from the field catalog; visibility follows the "Cột hiển thị" toggles.</summary>
     private void BuildColumns()
@@ -34,7 +45,11 @@ public partial class MainWindow : Window
         foreach (var option in Vm.Columns)
         {
             var f = option.Field;
-            var binding = new Binding(f.Key) { Mode = BindingMode.OneWay };
+            bool extra = f.Key.StartsWith(FieldCatalog.ExtraKeyPrefix);
+            // Extra Excel columns are not properties of StaffRecord: bind the row and read the value through the field.
+            var binding = extra
+                ? new Binding { Mode = BindingMode.OneWay, Converter = FieldValue, ConverterParameter = f }
+                : new Binding(f.Key) { Mode = BindingMode.OneWay };
             if (f.Kind == FieldKind.Date) binding.StringFormat = "dd/MM/yyyy";
             if (f.Kind == FieldKind.Bool) binding.Converter = checkMark;
 
@@ -47,6 +62,8 @@ public partial class MainWindow : Window
                 Header = f.Header,
                 Binding = binding,
                 SortMemberPath = f.Key,
+                // ponytail: no sorting on extra columns (the view sorts by property name); filter on them instead.
+                CanUserSort = !extra,
                 // Wide enough for the header text (≈7.5 px per character + sort arrow / padding)
                 Width = new DataGridLength(Math.Max(f.Width, f.Header.Length * 7.5 + 22)),
                 ElementStyle = elementStyle,

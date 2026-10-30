@@ -42,7 +42,16 @@ You can pass a file on the command line, or drop it on the window:
       It runs a short check that shows a Windows notification, even when the app is closed. If the PC was off, it runs after login.
     - *Đã xử lý* silences one post until its end date changes (e.g. after re-appointment).
     - The day count, the interval and retirement can be changed in Settings.
-11. Grid shortcuts: double-click or Enter edits, Delete deletes. *Đã thôi / Khôi phục* moves rows between the two sections.
+11. **Extra columns**: a headed column in the Excel file that is not in the template (e.g. *Trưởng phòng*) is imported as a text column.
+    It shows in the grid, the filter builder (e.g. *Trưởng phòng → Không trống*), the edit form and the export. It cannot be sorted.
+12. **Đơn vị cấp trên**: the Viện / Trung tâm / Khoa / Phân hiệu a unit belongs to, read from the prefix of *Đơn vị*
+    (e.g. "YHCT - BM Dược YHCT" → Khoa Y học cổ truyền). Filter on it, or use it in Thống kê, to include the constituent units.
+    The prefixes are listed in `Services/UnitHierarchy.cs`; add a row there when the list uses a new one.
+13. **QĐ bổ nhiệm trước** (column AO): when a row gets a new QĐ (reappointment via *Cập nhật dòng*, or a new Số QĐ *and* Ngày QĐ in the
+    edit form), the old one is appended first, e.g. `1234/QĐ-ĐHYHN ngày 01/07/2010 (BN 2010–2015)`. The person keeps one row.
+14. **? / F1 – Hướng dẫn**: the in-app manual (steps and tips per feature, search without accents). It stays open beside the list.
+    The text lives in `ViewModels/HelpViewModel.cs`; update it when a feature changes.
+15. Grid shortcuts: double-click or Enter edits, Delete deletes. *Đã thôi / Khôi phục* moves rows between the two sections.
 
 ## Data & settings
 

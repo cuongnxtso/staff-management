@@ -43,7 +43,7 @@ public static partial class ExcelService
         bool twoLevel = Enumerable.Range(1, sheet.MaxCol)
             .Any(c => subRowCandidates.Contains(VietnameseText.Normalize(sheet.Text(headerRow + 1, c))));
 
-        var map = MapColumns(sheet, headerRow, twoLevel, result.Warnings);
+        var (map, extras) = MapColumns(sheet, headerRow, twoLevel, result.Warnings);
         if (!map.ContainsKey(nameof(StaffRecord.FullName)))
             throw new InvalidDataException("Không xác định được cột \"Họ và tên\".");
 
@@ -68,6 +68,7 @@ public static partial class ExcelService
                 if (!map.TryGetValue(field.Key, out var col) || sheet[row, col] is not { } cell) continue;
                 AssignCell(record, field, cell);
             }
+            foreach (var (col, header) in extras) record.SetExtra(header, sheet.Text(row, col));
 
             // Birth date missing / unparseable: rebuild from the day / month / year columns.
             if (record.DateOfBirth is null
@@ -119,24 +120,28 @@ public static partial class ExcelService
         return null;
     }
 
-    private static Dictionary<string, int> MapColumns(XlsxSheet sheet, int headerRow, bool twoLevel, List<string> warnings)
+    /// <summary>Template field → column, plus the other headed columns (kept as <see cref="FieldCatalog.Extras"/>).</summary>
+    private static (Dictionary<string, int> Map, List<(int Col, string Header)> Extras) MapColumns(
+        XlsxSheet sheet, int headerRow, bool twoLevel, List<string> warnings)
     {
         int maxCol = Math.Max(sheet.MaxCol, FieldCatalog.ExcelFields.Max(f => XlsxReader.ColumnIndex(f.ExcelColumn!)));
-        var top = new string[maxCol + 1];
-        var sub = new string[maxCol + 1];
+        var rawTop = new string[maxCol + 1];
+        var rawSub = new string[maxCol + 1];
         for (int c = 1; c <= maxCol; c++)
         {
-            top[c] = VietnameseText.Normalize(sheet.Text(headerRow, c));
-            sub[c] = twoLevel ? VietnameseText.Normalize(sheet.Text(headerRow + 1, c)) : "";
+            rawTop[c] = sheet.Text(headerRow, c)?.Trim() ?? "";
+            rawSub[c] = twoLevel ? sheet.Text(headerRow + 1, c)?.Trim() ?? "" : "";
         }
         // Horizontally merged top headers apply to every column of the range.
         foreach (var (r1, c1, r2, c2) in sheet.Merges)
             if (r1 <= headerRow && r2 >= headerRow && c2 > c1)
                 for (int c = c1 + 1; c <= Math.Min(c2, maxCol); c++)
-                    if (top[c].Length == 0) top[c] = top[c1];
+                    if (rawTop[c].Length == 0) rawTop[c] = rawTop[c1];
         // A sub-header without a top header belongs to the group on its left (e.g. Z "Hết hạn BN" under "Thời điểm").
         for (int c = 2; c <= maxCol; c++)
-            if (top[c].Length == 0 && sub[c].Length > 0) top[c] = top[c - 1];
+            if (rawTop[c].Length == 0 && rawSub[c].Length > 0) rawTop[c] = rawTop[c - 1];
+        var top = rawTop.Select(t => VietnameseText.Normalize(t)).ToArray();
+        var sub = rawSub.Select(s => VietnameseText.Normalize(s)).ToArray();
 
         var map = new Dictionary<string, int>();
         var used = new HashSet<int>();
@@ -169,7 +174,20 @@ public static partial class ExcelService
                 warnings.Add($"Không tìm thấy cột \"{f.ExcelTop}{(f.ExcelSub is null ? "" : " / " + f.ExcelSub)}\" — bỏ qua.");
             }
         }
-        return map;
+
+        var extras = new List<(int, string)>();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int c = 1; c <= sheet.MaxCol; c++)
+        {
+            if (used.Contains(c) || (top[c].Length == 0 && sub[c].Length == 0)) continue;
+            var label = rawSub[c].Length == 0 ? rawTop[c] : $"{rawTop[c]} - {rawSub[c]}";
+            var header = label;
+            for (int n = 2; !names.Add(header); n++) header = $"{label} ({n})";
+            extras.Add((c, header));
+        }
+        if (extras.Count > 0)
+            warnings.Add($"Cột bổ sung (không có trong mẫu, nhập dạng văn bản): {string.Join(", ", extras.Select(e => $"\"{e.Item2}\""))}.");
+        return (map, extras);
     }
 
     // ------------------------------------------------------------------ Export

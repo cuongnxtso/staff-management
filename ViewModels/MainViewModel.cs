@@ -99,9 +99,7 @@ public partial class MainViewModel : ObservableObject
         _section = Sections[0];
         _statOption = StatOption.All[0];
 
-        var visible = _settings.VisibleColumns?.ToHashSet();
-        Columns = new(FieldCatalog.All.Select(f => new ColumnOption(f, visible?.Contains(f.Key) ?? f.DefaultVisible)));
-        foreach (var c in Columns) c.PropertyChanged += (_, _) => _settings.VisibleColumns = Columns.Where(x => x.IsVisible).Select(x => x.Field.Key).ToList();
+        Columns = [];
 
         View = CollectionViewSource.GetDefaultView(Records);
         View.Filter = o => o is StaffRecord r && _predicate(r);
@@ -156,6 +154,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseReminderBanner() => ReminderBanner = null;
 
+    [RelayCommand]
+    private void OpenHelp() => _dialogs.ShowHelp();
+
     // ------------------------------------------------------------------ Loading & filtering
 
     private void Reload()
@@ -164,9 +165,33 @@ public partial class MainViewModel : ObservableObject
         Records.Clear();
         foreach (var r in _repo.LoadAll()) Records.Add(r);
         _suggestionCache.Clear();
+        if (FieldCatalog.SetExtraColumns(Records) || Columns.Count == 0) RebuildColumns();
         _suspendRefresh = false;
         Refresh();
     }
+
+    /// <summary>Raised after <see cref="Columns"/> is rebuilt (extra Excel columns appeared or went away), so the grid recreates its columns.</summary>
+    public event Action? ColumnsRebuilt;
+
+    private void RebuildColumns()
+    {
+        var visible = _settings.VisibleColumns?.ToHashSet();
+        var shown = Columns.Select(c => c.Field.Key).ToHashSet();
+        // A column that just appeared (first import of a file with extra columns) is shown; otherwise the saved choice wins.
+        bool IsVisible(FieldDefinition f) => Columns.Count > 0 && !shown.Contains(f.Key) ? f.DefaultVisible : visible?.Contains(f.Key) ?? f.DefaultVisible;
+        var options = FieldCatalog.All.Select(f => new ColumnOption(f, IsVisible(f))).ToList();
+
+        Columns.Clear();
+        foreach (var c in options)
+        {
+            c.PropertyChanged += (_, _) => SaveVisibleColumns();
+            Columns.Add(c);
+        }
+        if (visible is not null) SaveVisibleColumns();
+        ColumnsRebuilt?.Invoke();
+    }
+
+    private void SaveVisibleColumns() => _settings.VisibleColumns = Columns.Where(x => x.IsVisible).Select(x => x.Field.Key).ToList();
 
     partial void OnQuickSearchChanged(string? value) => Refresh();
     partial void OnMatchAllChanged(bool value)
@@ -552,7 +577,7 @@ public partial class MainViewModel : ObservableObject
         if (path is null) return;
 
         IReadOnlyList<FieldDefinition> columns = allColumns.Value
-            ? FieldCatalog.ExcelFields
+            ? [.. FieldCatalog.ExcelFields, .. FieldCatalog.Extras]
             : Columns.Where(c => c.IsVisible).Select(c => c.Field).ToList();
         try
         {

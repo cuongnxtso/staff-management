@@ -42,7 +42,7 @@ public static class DecisionApplier
         string.IsNullOrWhiteSpace(info.DecisionNumber) ? null
             : personRows.FirstOrDefault(r => SameNumber(r.DecisionNumber, info.DecisionNumber));
 
-    private static bool SameNumber(string? a, string? b) =>
+    public static bool SameNumber(string? a, string? b) =>
         !string.IsNullOrWhiteSpace(a) && VietnameseText.Normalize(a).Replace(" ", "") == VietnameseText.Normalize(b).Replace(" ", "");
 
     /// <summary>"Phó Giám đốc" and "Phó Giám đốc - Phụ trách" are the same post; "P. Trưởng phòng" and "Trưởng phòng" are not.</summary>
@@ -104,6 +104,9 @@ public static class DecisionApplier
         r.ProfessionalTitle ??= info.ProfessionalTitle;
         r.HomeUnit ??= info.HomeUnit;
         if (!string.IsNullOrWhiteSpace(info.Department)) r.Department = info.Department;
+        // A new QĐ on an existing row (reappointment): the old one goes to "QĐ bổ nhiệm trước" before it is overwritten.
+        if (!string.IsNullOrWhiteSpace(info.DecisionNumber) && !SameNumber(r.DecisionNumber, info.DecisionNumber))
+            KeepPreviousDecision(r, r);
         r.DecisionNumber = info.DecisionNumber ?? r.DecisionNumber;
         r.DecisionDate = info.DecisionDate ?? r.DecisionDate;
         r.AppointingUnit = info.AppointingUnit ?? r.AppointingUnit;
@@ -119,6 +122,23 @@ public static class DecisionApplier
         }
         if (info.Kind == DecisionKind.Reappoint) r.IsReappointed = true;
         r.IsFormer = false;
+    }
+
+    /// <summary>
+    /// Appends the QĐ of <paramref name="old"/> (number, date, term) to <paramref name="r"/>'s "QĐ bổ nhiệm trước",
+    /// e.g. "1234/QĐ-ĐHYHN ngày 01/07/2010 (BN 2010–2015)". Skipped when there is no number or it is already listed.
+    /// </summary>
+    public static void KeepPreviousDecision(StaffRecord r, StaffRecord old)
+    {
+        var number = old.DecisionNumber?.Trim();
+        if (string.IsNullOrEmpty(number)) return;
+        var listed = (r.PreviousDecisions ?? "").Split(';', StringSplitOptions.TrimEntries)
+            .Any(e => e.Equals(number, StringComparison.OrdinalIgnoreCase) || e.StartsWith(number + " ", StringComparison.OrdinalIgnoreCase));
+        if (listed) return;
+        var entry = number
+                    + (old.DecisionDate is { } d ? $" ngày {d:dd/MM/yyyy}" : "")
+                    + (old.AppointYear is { } y ? $" (BN {y}{(old.AppointExpiryYear is { } e ? $"–{e}" : "")})" : "");
+        r.PreviousDecisions = string.IsNullOrWhiteSpace(r.PreviousDecisions) ? entry : $"{r.PreviousDecisions}; {entry}";
     }
 
     public static void MoveToFormer(StaffRecord r, DecisionInfo info)

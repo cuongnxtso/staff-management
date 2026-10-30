@@ -13,6 +13,7 @@
         AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop">
 
     <Window.InputBindings>
+        <KeyBinding Key="F1" Command="{Binding OpenHelpCommand}" />
         <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddRecordCommand}" />
         <KeyBinding Key="E" Modifiers="Control" Command="{Binding ExportExcelCommand}" />
         <KeyBinding Key="O" Modifiers="Control" Command="{Binding ImportExcelCommand}" />
@@ -107,6 +108,22 @@
                     </Button>
                     <Button Style="{StaticResource HeaderButton}" Command="{Binding OpenSettingsCommand}" ToolTip="Cài đặt AI, thông tin xuất báo cáo, sao lưu dữ liệu">
                         <TextBlock Text="⚙  Cài đặt" />
+                    </Button>
+                    <Button Style="{StaticResource HeaderButton}" Command="{Binding OpenHelpCommand}" AutomationProperties.Name="Hướng dẫn"
+                            ToolTip="Hướng dẫn sử dụng và mẹo (F1)" Padding="0" Width="32" Height="32">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="White" CornerRadius="16">
+                                    <TextBlock Text="?" FontSize="17" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimaryLightBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
                     </Button>
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
@@ -340,7 +357,10 @@
                             <TextBlock Text="📂" FontSize="40" HorizontalAlignment="Center" />
                             <TextBlock Text="Chưa có dữ liệu" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,6,0,4" />
                             <TextBlock Text="Bấm &quot;Nhập Excel&quot; hoặc kéo thả tệp danh sách (.xlsx) vào cửa sổ này." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
-                            <Button Content="📥  Nhập Excel" Style="{StaticResource PrimaryButton}" Command="{Binding ImportExcelCommand}" Margin="0,12,0,0" HorizontalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                                <Button Content="📥  Nhập Excel" Style="{StaticResource PrimaryButton}" Command="{Binding ImportExcelCommand}" />
+                                <Button Content="?  Xem hướng dẫn (F1)" Command="{Binding OpenHelpCommand}" Margin="0" />
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </TabItem>

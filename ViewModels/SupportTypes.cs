@@ -43,6 +43,7 @@ public sealed record StatOption(string Label, Func<StaffRecord, string?> KeySele
         new("Đảng viên", r => r.IsPartyMember ? "Đảng viên" : "Chưa / không có thông tin"),
         new("Chức vụ", r => r.Position, PerPerson: false),
         new("Đơn vị", r => r.Department, PerPerson: false),
+        new("Đơn vị cấp trên (gồm đơn vị trực thuộc)", r => r.ParentUnit, PerPerson: false),
         new("Đơn vị cơ hữu", r => r.HomeUnit),
         new("Cấp bổ nhiệm", r => r.AppointingLevel, PerPerson: false),
         new("Đơn vị bổ nhiệm", r => r.AppointingUnit, PerPerson: false),

@@ -30,11 +30,38 @@ public static class FieldCatalog
     public const string GroupQualification = "Trình độ & Đảng";
     public const string GroupPosition = "Chức vụ & Bổ nhiệm";
     public const string GroupContact = "Liên hệ & Ghi chú";
+    public const string GroupExtra = "Cột bổ sung (từ Excel)";
+    public const string ExtraKeyPrefix = "Extra:";
 
-    public static IReadOnlyList<FieldDefinition> All { get; } = Build();
+    private static readonly IReadOnlyList<FieldDefinition> Known = Build();
 
+    /// <summary>Template columns plus the <see cref="Extras"/>.</summary>
+    public static IReadOnlyList<FieldDefinition> All { get; private set; } = Known;
+
+    /// <summary>Template columns only: what the importer looks for.</summary>
     public static IReadOnlyList<FieldDefinition> ExcelFields { get; } =
-        All.Where(f => f.ExcelColumn is not null).ToList();
+        Known.Where(f => f.ExcelColumn is not null).ToList();
+
+    /// <summary>Text columns the user added to the Excel file (e.g. "Trưởng phòng"), taken from the rows' <see cref="StaffRecord.ExtraColumns"/>.</summary>
+    public static IReadOnlyList<FieldDefinition> Extras { get; private set; } = [];
+
+    /// <summary>Rebuilds <see cref="Extras"/> from the data, in order of first appearance. Returns false when nothing changed.</summary>
+    public static bool SetExtraColumns(IEnumerable<StaffRecord> records)
+    {
+        var headers = records.SelectMany(r => r.ExtraValues().Keys).Distinct().ToList();
+        if (headers.SequenceEqual(Extras.Select(f => f.Header))) return false;
+        Extras = headers.Select(Extra).ToList();
+        All = [.. Known, .. Extras];
+        return true;
+    }
+
+    private static FieldDefinition Extra(string header) => new()
+    {
+        // No commas in keys: the visible-column setting is stored comma-separated.
+        Key = ExtraKeyPrefix + header.Replace(",", ""), Header = header, Kind = FieldKind.Text, Group = GroupExtra, ExcelTop = header,
+        DefaultVisible = true, Width = 120,
+        Get = r => r.GetExtra(header), Set = (r, v) => r.SetExtra(header, v as string),
+    };
 
     public static FieldDefinition? Find(string? key) =>
         All.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
@@ -113,9 +140,11 @@ public static class FieldCatalog
         Text(nameof(StaffRecord.PracticeSitePosition), "Chức vụ tại CSTH", r => r.PracticeSitePosition, (r, v) => r.PracticeSitePosition = v, GroupContact, "AL", "Chức vụ tại CSTH (đối với LĐ, QL kiêm nhiệm)", width: 200, multiline: true),
         Text(nameof(StaffRecord.ExtraNote), "Ghi chú thêm", r => r.ExtraNote, (r, v) => r.ExtraNote = v, GroupContact, "AM", "Ghi chú thêm"),
         Text(nameof(StaffRecord.ProfessionalTitle), "Chức danh nghề nghiệp", r => r.ProfessionalTitle, (r, v) => r.ProfessionalTitle = v, GroupQualification, "AN", "Chức danh nghề nghiệp", width: 160),
+        Text(nameof(StaffRecord.PreviousDecisions), "QĐ bổ nhiệm trước", r => r.PreviousDecisions, (r, v) => r.PreviousDecisions = v, GroupPosition, "AO", "QĐ bổ nhiệm trước", width: 250, multiline: true),
 
         // Derived fields (not in the Excel template) — handy for filtering
         new FieldDefinition { Key = nameof(StaffRecord.Status), Header = "Tình trạng", Kind = FieldKind.Text, Get = r => r.Status, Width = 105 },
+        new FieldDefinition { Key = nameof(StaffRecord.ParentUnit), Header = "Đơn vị cấp trên", Kind = FieldKind.Text, Get = r => r.ParentUnit, Width = 200 },
         Flag(nameof(StaffRecord.IsPartyMember), "Là đảng viên", r => r.IsPartyMember, null, null, null, null),
         Date(nameof(StaffRecord.RetirementDate), "Thời điểm nghỉ hưu", r => r.RetirementDate, null, null, null, null),
         Number(nameof(StaffRecord.MonthsToRetirement), "Số tháng đến nghỉ hưu", r => r.MonthsToRetirement, null, null, null, null),
