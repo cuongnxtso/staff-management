@@ -26,6 +26,10 @@ public sealed class FilterPreset
 {
     public string Name { get; set; } = "";
     public FilterSet Filter { get; set; } = new();
+    /// <summary>When it was last saved; null for the built-in defaults and filters saved before v1.4 (listed last).</summary>
+    public DateTime? SavedAt { get; set; }
+
+    public override string ToString() => Name; // list item name for screen readers
 }
 
 public sealed record OperatorOption(FilterOperator Operator, string Label, int ValueCount)

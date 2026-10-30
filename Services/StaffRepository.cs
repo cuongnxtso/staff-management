@@ -72,6 +72,8 @@ public sealed class StaffRepository
         var existing = c.Query<string>("SELECT name FROM pragma_table_info('Staff')").ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var p in StoredProperties.Where(p => !existing.Contains(p.Name)))
             c.Execute($"ALTER TABLE Staff ADD COLUMN {p.Name} {SqlType(p.PropertyType)}");
+        if (!c.Query<string>("SELECT name FROM pragma_table_info('Presets')").Contains("SavedAt", StringComparer.OrdinalIgnoreCase))
+            c.Execute("ALTER TABLE Presets ADD COLUMN SavedAt TEXT");
     }
 
     private static string SqlType(Type t)
@@ -163,16 +165,19 @@ public sealed class StaffRepository
     public List<FilterPreset> LoadPresets()
     {
         using var c = Open();
-        return c.Query<(string Name, string Json)>("SELECT Name, Json FROM Presets ORDER BY Name")
-            .Select(p => new FilterPreset { Name = p.Name, Filter = JsonSerializer.Deserialize<FilterSet>(p.Json) ?? new FilterSet() })
+        return c.Query<(string Name, string Json, DateTime? SavedAt)>("SELECT Name, Json, SavedAt FROM Presets ORDER BY SavedAt DESC, Name")
+            .Select(p => new FilterPreset { Name = p.Name, Filter = JsonSerializer.Deserialize<FilterSet>(p.Json) ?? new FilterSet(), SavedAt = p.SavedAt })
             .ToList();
     }
 
     public void SavePreset(FilterPreset preset)
     {
         using var c = Open();
-        c.Execute("INSERT INTO Presets (Name, Json) VALUES (@Name, @Json) ON CONFLICT(Name) DO UPDATE SET Json = excluded.Json",
-            new { preset.Name, Json = JsonSerializer.Serialize(preset.Filter) });
+        c.Execute("""
+            INSERT INTO Presets (Name, Json, SavedAt) VALUES (@Name, @Json, @SavedAt)
+            ON CONFLICT(Name) DO UPDATE SET Json = excluded.Json, SavedAt = excluded.SavedAt
+            """,
+            new { preset.Name, Json = JsonSerializer.Serialize(preset.Filter), preset.SavedAt });
     }
 
     public void DeletePreset(string name)

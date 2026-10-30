@@ -115,7 +115,9 @@ public partial class HelpViewModel : ObservableObject
                 "Mở \"Bộ lọc nâng cao\", bấm \"➕ Thêm điều kiện\".",
                 "Chọn cột → phép so sánh (Chứa, Bằng, Lớn hơn, Trong khoảng, Trống…) → giá trị.",
                 "Chọn \"Thỏa TẤT CẢ (AND)\" hoặc \"Thỏa BẤT KỲ (OR)\" khi có nhiều điều kiện.",
-                "Bấm \"💾 Lưu bộ lọc\" để đặt tên và dùng lại; chọn lại ở ô \"Bộ lọc đã lưu\".",
+                "Bấm \"💾 Lưu bộ lọc\" để đặt tên và dùng lại.",
+                "Dùng lại: bấm ô \"Bộ lọc đã lưu\" — bộ lọc mới lưu nằm trên cùng; gõ vài chữ trong tên (không cần dấu) để tìm, rồi nhấp chọn hoặc nhấn Enter.",
+                "Chuyển bộ lọc sang máy khác: trong ô \"Bộ lọc đã lưu\" bấm \"⤓ Xuất…\" để lưu tất cả ra tệp .json; ở máy kia bấm \"⤒ Nhập…\" và chọn tệp đó.",
                 "Bấm \"⟲ Xóa toàn bộ lọc\" để quay về toàn bộ danh sách.",
             ],
             [
@@ -123,6 +125,9 @@ public partial class HelpViewModel : ObservableObject
                 "Cột bổ sung (như \"Trưởng phòng\" có đánh dấu x): dùng \"Không trống\" để lấy các dòng có đánh dấu, \"Trống\" để lấy các dòng không có.",
                 "Muốn lấy cả bộ môn / phòng trực thuộc một Khoa, Viện, Trung tâm, Phân hiệu: lọc theo \"Đơn vị cấp trên\" thay cho \"Đơn vị\".",
                 "Lọc \"Chức vụ Bằng Trưởng phòng\" để không lẫn \"Phó trưởng phòng\" (vì \"Chứa\" sẽ lấy cả hai).",
+                "Phần mềm có sẵn một số bộ lọc mẫu (sắp hết hạn bổ nhiệm, nghỉ hưu trong 12 tháng tới, trưởng phòng…), nằm cuối danh sách. Xóa bộ lọc mẫu không cần dùng — nó sẽ không tự thêm lại.",
+                "Khi nhập: bộ lọc trùng tên và giống hệt được bỏ qua; trùng tên nhưng khác điều kiện thì phần mềm hỏi giữ bộ lọc cũ hay thay bằng bộ lọc trong tệp.",
+                "Điều kiện theo cột mà dữ liệu không có (ví dụ cột tự thêm ở máy khác) được bỏ qua, có thông báo ở thanh trạng thái.",
             ]),
 
         new("👤", "Mỗi cán bộ 1 dòng (cột Lặp)",

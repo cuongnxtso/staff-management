@@ -28,6 +28,13 @@ You can pass a file on the command line, or drop it on the window:
    Any column, including ones added in Excel, works as *column name + value*: `Dân tộc Tày`, `mã CB TG1195`, `năm sinh 1970`,
    `chức vụ cơ hữu` (a tick column: not empty). `thuộc Khoa Y học cổ truyền` includes its constituent units.
 5. **Bộ lọc nâng cao**: stack conditions with AND/OR, and save them as named filters.
+   *Bộ lọc đã lưu* opens a searchable list (accents optional), newest first, about 5 rows before it scrolls.
+   - Each data folder starts with the sample filters in `Services/DefaultPresets.cs`, added once per `DefaultPresets.Version`
+     (setting `Presets.DefaultsVersion`). They have no save date, so they sit below the user's own filters.
+     A deleted default doesn't come back. To ship more defaults, add them and raise the version.
+   - *⤓ Xuất…* / *⤒ Nhập…* write and read all filters as a `.json` file (`Services/PresetFile.cs`).
+     On import, identical filters are skipped, and a name clash asks once whether to keep or replace.
+   - A condition on a column the data doesn't have is skipped, with a note in the status bar.
 6. **Thống kê** tab: counts by gender, age band, rank, degree, title, unit and more, for the current filter.
 7. **Quyết định**: drop a QĐ file on the window, or press Ctrl+D.
    - Check the extracted fields against the original text.

@@ -6,7 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:StaffEditViewModel}"
-        Title="{Binding WindowTitle}" Width="780" Height="640" MinWidth="600" MinHeight="420"
+        Title="{Binding WindowTitle}" Width="820" Height="680" MinWidth="600" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Style="{StaticResource AppWindow}">
     <Window.InputBindings>
@@ -32,7 +32,7 @@
                        TextWrapping="Wrap" Margin="10,0" />
         </DockPanel>
 
-        <TabControl ItemsSource="{Binding Groups}" Background="White">
+        <TabControl ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}" Background="White">
             <TabControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:EditorGroup}">
                     <TextBlock Text="{Binding Header}" Margin="6,2" />
