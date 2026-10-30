@@ -20,6 +20,7 @@ public interface IDialogService
     bool ReviewDecision(DecisionImportViewModel vm);
     void ShowSettings(SettingsViewModel vm);
     void ShowReminders(RemindersViewModel vm);
+    void ShowHelp();
     void OpenWithShell(string path);
 }
 
@@ -72,6 +73,21 @@ public sealed class DialogService : IDialogService
     public void ShowSettings(SettingsViewModel vm) => new SettingsWindow { DataContext = vm, Owner = Owner }.ShowDialog();
 
     public void ShowReminders(RemindersViewModel vm) => new RemindersWindow { DataContext = vm, Owner = Owner }.ShowDialog();
+
+    private HelpWindow? _help;
+
+    /// <summary>Not modal, so the manual can stay open next to the list; a second F1 brings the same window back.</summary>
+    public void ShowHelp()
+    {
+        if (_help is { IsVisible: true })
+        {
+            if (_help.WindowState == WindowState.Minimized) _help.WindowState = WindowState.Normal;
+            _help.Activate();
+            return;
+        }
+        _help = new HelpWindow { DataContext = new HelpViewModel(), Owner = Application.Current.MainWindow };
+        _help.Show();
+    }
 
     public void OpenWithShell(string path)
     {

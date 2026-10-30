@@ -133,6 +133,9 @@ public partial class StaffEditViewModel : ObservableObject
             ErrorText = "Vui lòng nhập Họ và tên.";
             return;
         }
+        // New QĐ number and date = a new decision (reappointment); a new number alone is taken as a typo fix.
+        if (!DecisionApplier.SameNumber(copy.DecisionNumber, _record.DecisionNumber) && copy.DecisionDate != _record.DecisionDate)
+            DecisionApplier.KeepPreviousDecision(copy, _record);
         if (copy.RetirementYear is null && RetirementCalculator.Suggest(copy.DateOfBirth, copy.Gender) is { } ret)
             (copy.RetirementMonth, copy.RetirementYear) = ret;
         copy.IsFormer = IsFormer;

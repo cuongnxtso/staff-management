@@ -1,3 +1,6 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
 using StaffManagement.Services;
 
 namespace StaffManagement.Models;
@@ -51,7 +54,26 @@ public class StaffRecord
     public string? PracticeSitePosition { get; set; }   // AL Chức vụ tại CSTH
     public string? ExtraNote { get; set; }              // AM (no header in template)
     public string? ProfessionalTitle { get; set; }      // AN (no header in template, e.g. "Giảng viên cao cấp (hạng I)")
+    public string? PreviousDecisions { get; set; }      // AO QĐ bổ nhiệm trước (added by the app, see DecisionApplier.KeepPreviousDecision)
+    /// <summary>Columns of the imported file that are not in the template, as JSON {header: value} (see <see cref="FieldCatalog.Extras"/>).</summary>
+    public string? ExtraColumns { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    private static readonly JsonSerializerOptions ExtraJson = new() { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
+
+    // ponytail: parses the JSON on every read; fine for a few hundred rows, cache it if the list grows to many thousands.
+    public Dictionary<string, string?> ExtraValues() =>
+        string.IsNullOrEmpty(ExtraColumns) ? [] : JsonSerializer.Deserialize<Dictionary<string, string?>>(ExtraColumns) ?? [];
+
+    public string? GetExtra(string header) => ExtraValues().GetValueOrDefault(header);
+
+    /// <summary>Empty values are kept as null so every row lists the columns in the file's order.</summary>
+    public void SetExtra(string header, string? value)
+    {
+        var values = ExtraValues();
+        values[header] = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        ExtraColumns = JsonSerializer.Serialize(values, ExtraJson);
+    }
 
     // ---- Computed columns (formulas in the Excel template) ----
 
@@ -123,6 +145,9 @@ public class StaffRecord
     public int? DaysToTermEnd => TermEndDate is { } e ? (e - DateTime.Today).Days : null;
 
     public string Status => IsFormer ? "Đã thôi giữ CV" : "Đang giữ CV";
+
+    /// <summary>Viện / Trung tâm / Khoa / Phân hiệu the unit belongs to (the unit itself otherwise).</summary>
+    public string? ParentUnit => UnitHierarchy.ParentOf(Department);
 
     public StaffRecord Clone() => (StaffRecord)MemberwiseClone();
 }
