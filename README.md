@@ -25,12 +25,16 @@ You can pass a file on the command line, or drop it on the window:
 2. **Sheet tabs under the list** (like Excel): *Đang giữ chức vụ* and *Thôi giữ chức vụ*. Each tab shows how many rows match the current filter; switch with Ctrl+PageUp / Ctrl+PageDown.
 3. **Tìm nhanh**: search name, Mã CB, title, unit or phone. Accents are optional.
 4. **Hỏi nhanh**: type a question, e.g. `nữ từ 40 đến 55 tuổi là đảng viên PGS`, `trưởng bộ môn nghỉ hưu năm nay` or `hết hạn bổ nhiệm năm 2027`. Press Enter and it becomes filter-builder rows you can adjust.
+   Any column, including ones added in Excel, works as *column name + value*: `Dân tộc Tày`, `mã CB TG1195`, `năm sinh 1970`,
+   `chức vụ cơ hữu` (a tick column: not empty). `thuộc Khoa Y học cổ truyền` includes its constituent units.
 5. **Bộ lọc nâng cao**: stack conditions with AND/OR, and save them as named filters.
 6. **Thống kê** tab: counts by gender, age band, rank, degree, title, unit and more, for the current filter.
 7. **Quyết định**: drop a QĐ file on the window, or press Ctrl+D.
    - Check the extracted fields against the original text.
    - Choose *add new position*, *update row* or *move to "Đã thôi"*, then save.
 8. **Xuất Excel** (Ctrl+E): exports the filtered list in the original template, including the "THÔI GIỮ CHỨC VỤ" section.
+   Columns keep the positions they had in the last file imported with *replace* (saved as `Export.ColumnOrder`).
+   Template columns that file did not have go at the end, and are left out of a full export when they are empty.
 9. **Mỗi cán bộ 1 dòng**: hides a person's *Lặp* rows, so each person appears once (also applies to export).
    The app keeps the *Lặp* column consistent: each person has exactly one main row in each section.
 10. **🔔 Nhắc hạn**: lists the current posts that end within 100 days, with a count-down.
@@ -44,16 +48,25 @@ You can pass a file on the command line, or drop it on the window:
     - The day count, the interval and retirement can be changed in Settings.
 11. **Extra columns**: a headed column in the Excel file that is not in the template (e.g. *Trưởng phòng*) is imported as a text column.
     It shows in the grid, the filter builder (e.g. *Trưởng phòng → Không trống*), the edit form and the export. It cannot be sorted.
+    *Chức danh nghề nghiệp* is also read from a column headed *Hạng*.
 12. **Đơn vị cấp trên**: the Viện / Trung tâm / Khoa / Phân hiệu a unit belongs to, read from the prefix of *Đơn vị*
     (e.g. "YHCT - BM Dược YHCT" → Khoa Y học cổ truyền). Filter on it, or use it in Thống kê, to include the constituent units.
     The prefixes are listed in `Services/UnitHierarchy.cs`; add a row there when the list uses a new one.
 13. **QĐ bổ nhiệm trước** (column AO): when a row gets a new QĐ (reappointment via *Cập nhật dòng*, or a new Số QĐ *and* Ngày QĐ in the
     edit form), the old one is appended first, e.g. `1234/QĐ-ĐHYHN ngày 01/07/2010 (BN 2010–2015)`. The person keeps one row.
+    If the file has the client's own old-QĐ columns (*Số QĐ bổ nhiệm (cũ1)*, *(cũ2)*, *Đơn vị BN (cũ)*, *(cũ 3)*, *ngày QĐ BN Cũ 3*),
+    those are used instead: the old QĐ goes to cũ1 (date in cũ2, issuer in Đơn vị BN (cũ)) and the previous cũ1 is appended to cũ 3
+    (its date in ngày QĐ BN Cũ 3). See `DecisionApplier.ShiftIntoClientColumns`.
 14. **? / F1 – Hướng dẫn**: the in-app manual (steps and tips per feature, search without accents). It stays open beside the list.
     The text lives in `ViewModels/HelpViewModel.cs`; update it when a feature changes.
 15. Grid shortcuts: double-click or Enter edits, Delete deletes. *Đã thôi / Khôi phục* moves rows between the two sections.
 
 ## Data & settings
+
+- Every copy of the exe uses the same data folder, so keep one copy and update by replacing the exe.
+  The title bar shows the version (from `<Version>` in the csproj, or `-p:Version=` when publishing).
+  A second window on the same data folder asks first, because two windows overwrite each other's changes
+  (detected with a named mutex per data folder; v1.0 / v1.1 windows are not detected).
 
 - Database: `%LOCALAPPDATA%\StaffManagement\staff.db` (SQLite). Automatic backups go in its `backups` subfolder.
   To use another folder (portable or testing), set the environment variable `STAFFMANAGEMENT_DATA`.

@@ -16,6 +16,8 @@ public sealed class FieldDefinition
     public string? ExcelColumn { get; init; }
     public string? ExcelTop { get; init; }
     public string? ExcelSub { get; init; }
+    /// <summary>Another header the importer accepts for this column (e.g. "Hạng" for Chức danh nghề nghiệp).</summary>
+    public string? ExcelAlias { get; init; }
     public bool DefaultVisible { get; init; }
     public double Width { get; init; } = 110;
     public bool Multiline { get; init; }
@@ -55,10 +57,12 @@ public static class FieldCatalog
         return true;
     }
 
+    // No commas in keys: the visible-column and column-order settings are stored comma-separated.
+    public static string ExtraKey(string header) => ExtraKeyPrefix + header.Replace(",", "");
+
     private static FieldDefinition Extra(string header) => new()
     {
-        // No commas in keys: the visible-column setting is stored comma-separated.
-        Key = ExtraKeyPrefix + header.Replace(",", ""), Header = header, Kind = FieldKind.Text, Group = GroupExtra, ExcelTop = header,
+        Key = ExtraKey(header), Header = header, Kind = FieldKind.Text, Group = GroupExtra, ExcelTop = header,
         DefaultVisible = true, Width = 120,
         Get = r => r.GetExtra(header), Set = (r, v) => r.SetExtra(header, v as string),
     };
@@ -67,9 +71,10 @@ public static class FieldCatalog
         All.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
 
     private static FieldDefinition Text(string key, string header, Func<StaffRecord, string?> get, Action<StaffRecord, string?> set,
-        string group, string col, string top, string? sub = null, bool visible = false, double width = 120, bool multiline = false) => new()
+        string group, string col, string top, string? sub = null, bool visible = false, double width = 120, bool multiline = false,
+        string? alias = null) => new()
     {
-        Key = key, Header = header, Kind = FieldKind.Text, Group = group, ExcelColumn = col, ExcelTop = top, ExcelSub = sub,
+        Key = key, Header = header, Kind = FieldKind.Text, Group = group, ExcelColumn = col, ExcelTop = top, ExcelSub = sub, ExcelAlias = alias,
         DefaultVisible = visible, Width = width, Multiline = multiline,
         Get = get, Set = (r, v) => set(r, v as string),
     };
@@ -139,7 +144,7 @@ public static class FieldCatalog
         Text(nameof(StaffRecord.AllPositions), "Tổng hợp chức vụ trong Trường", r => r.AllPositions, (r, v) => r.AllPositions = v, GroupContact, "AK", "Tổng hợp chức vụ trong Trường", width: 250, multiline: true),
         Text(nameof(StaffRecord.PracticeSitePosition), "Chức vụ tại CSTH", r => r.PracticeSitePosition, (r, v) => r.PracticeSitePosition = v, GroupContact, "AL", "Chức vụ tại CSTH (đối với LĐ, QL kiêm nhiệm)", width: 200, multiline: true),
         Text(nameof(StaffRecord.ExtraNote), "Ghi chú thêm", r => r.ExtraNote, (r, v) => r.ExtraNote = v, GroupContact, "AM", "Ghi chú thêm"),
-        Text(nameof(StaffRecord.ProfessionalTitle), "Chức danh nghề nghiệp", r => r.ProfessionalTitle, (r, v) => r.ProfessionalTitle = v, GroupQualification, "AN", "Chức danh nghề nghiệp", width: 160),
+        Text(nameof(StaffRecord.ProfessionalTitle), "Chức danh nghề nghiệp", r => r.ProfessionalTitle, (r, v) => r.ProfessionalTitle = v, GroupQualification, "AN", "Chức danh nghề nghiệp", width: 160, alias: "Hạng"),
         Text(nameof(StaffRecord.PreviousDecisions), "QĐ bổ nhiệm trước", r => r.PreviousDecisions, (r, v) => r.PreviousDecisions = v, GroupPosition, "AO", "QĐ bổ nhiệm trước", width: 250, multiline: true),
 
         // Derived fields (not in the Excel template) — handy for filtering

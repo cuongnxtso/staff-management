@@ -51,13 +51,15 @@ public partial class HelpViewModel : ObservableObject
                 "Bấm \"📥 Nhập Excel\" (Ctrl+O) và chọn tệp danh sách — hoặc kéo thả tệp .xlsx vào cửa sổ.",
                 "Chọn trang ở dưới danh sách: \"Đang giữ chức vụ\" hoặc \"Thôi giữ chức vụ\" (giống các sheet trong Excel).",
                 "Gõ vào ô \"Tìm nhanh\", hoặc gõ câu hỏi vào ô \"Hỏi nhanh\" rồi Enter, hoặc thêm điều kiện ở \"Bộ lọc nâng cao\".",
-                "Bấm \"📤 Xuất Excel\" (Ctrl+E) để xuất đúng danh sách đang lọc theo mẫu gốc.",
+                "Bấm \"📤 Xuất Excel\" (Ctrl+E) để xuất đúng danh sách đang lọc, giữ nguyên vị trí cột như tệp đã nhập.",
             ],
             [
                 "Nhấp đúp vào một dòng để xem chi tiết đầy đủ thông tin của cán bộ đó (bấm Hủy hoặc Esc để đóng mà không thay đổi gì).",
                 "Bấm F1 ở bất kỳ đâu để mở lại hướng dẫn này. Cửa sổ hướng dẫn có thể để mở bên cạnh trong lúc làm việc.",
                 "Rê chuột lên một nút để xem giải thích ngắn.",
                 "Dữ liệu được tự động sao lưu trước mỗi lần thay thế hoặc xóa.",
+                "Phiên bản đang dùng hiện trên thanh tiêu đề (ví dụ \"v1.2.0\"). Chỉ nên giữ 1 bản: khi cập nhật, thay tệp .exe cũ bằng tệp mới — dữ liệu vẫn giữ nguyên.",
+                "Chỉ mở 1 cửa sổ phần mềm: nếu phần mềm báo đang mở ở cửa sổ khác, chọn \"Không\" và dùng cửa sổ đó, tránh mất thay đổi.",
             ]),
 
         new("📥", "Nhập dữ liệu từ Excel",
@@ -72,6 +74,8 @@ public partial class HelpViewModel : ObservableObject
                 "Phần mềm tìm cột theo TÊN tiêu đề, không theo vị trí — đổi thứ tự cột trong Excel vẫn nhập đúng.",
                 "Riêng 2 cột không có tiêu đề trong mẫu (Ghi chú thêm, Chức danh nghề nghiệp — cột AM, AN) được tìm theo vị trí: nên thêm cột mới vào SAU cột cuối cùng; nếu chèn trước chúng, 2 cột này sẽ bị bỏ qua (có cảnh báo).",
                 "Cột anh/chị tự thêm vào Excel (ví dụ \"Trưởng phòng\", \"Phó phòng\") cũng được giữ lại thành \"cột bổ sung\" — xem mục \"Cột bổ sung\".",
+                "Cột tiêu đề \"Hạng\" được hiểu là cột \"Chức danh nghề nghiệp\".",
+                "Vị trí các cột của tệp được ghi nhớ: khi xuất Excel, mỗi cột nằm đúng chỗ như trong tệp đã nhập.",
                 "Trước khi thay thế, dữ liệu cũ được sao lưu tự động; có thể khôi phục trong \"⚙ Cài đặt\".",
             ]),
 
@@ -90,10 +94,17 @@ public partial class HelpViewModel : ObservableObject
             "Gõ câu hỏi như nói chuyện, phần mềm tự đổi thành các điều kiện lọc.",
             [
                 "Gõ câu hỏi vào ô \"Hỏi nhanh\", ví dụ: \"nữ từ 40 đến 55 tuổi là đảng viên PGS\", \"trưởng bộ môn nghỉ hưu năm nay\", \"hết hạn bổ nhiệm năm 2027\".",
+                "Lọc theo một cột bất kỳ (kể cả cột tự thêm trong Excel): gõ TÊN CỘT rồi GIÁ TRỊ, ví dụ \"Dân tộc Tày\", \"phân loại chức vụ Trưởng\", \"mã CB TG1195\", \"năm sinh 1970\", \"hạng I\", \"đơn vị cơ hữu Bạch Mai\".",
+                "Cột đánh dấu x: chỉ gõ tên cột (\"chức vụ cơ hữu\") để lấy các dòng có x; thêm \"không\" (\"chức vụ cơ hữu không\") để lấy các dòng trống.",
+                "Ghép nhiều điều kiện bằng dấu phẩy: \"dân tộc Tày, nữ, trên 50 tuổi\".",
                 "Nhấn Enter hoặc bấm \"Tạo bộ lọc\".",
                 "Kiểm tra các điều kiện vừa tạo trong \"Bộ lọc nâng cao\" và sửa lại nếu cần.",
             ],
             [
+                "Các cách gõ phần mềm hiểu: giới (nữ, nam); tuổi (trên 50 tuổi, dưới 40 tuổi, từ 40 đến 55 tuổi); đảng viên / chưa là đảng viên; GS, PGS, TS, ThS; sinh năm 1970, sinh trước 1965; nghỉ hưu năm nay / năm 2027 / trong 12 tháng; hết hạn bổ nhiệm năm 2027 / trong 60 ngày / sắp hết hạn; đã thôi; kiêm nhiệm; bổ nhiệm lại; tên chức vụ (trưởng bộ môn, phó trưởng khoa…); thuộc + tên đơn vị.",
+                "\"thuộc Khoa Y học cổ truyền\" (hoặc \"thuộc YHCT\") lấy cả các đơn vị trực thuộc khoa.",
+                "Báo \"Không nhận ra điều kiện nào\": thêm tên cột trước giá trị — \"chức danh bác sĩ cao cấp\" thay vì \"bác sĩ cao cấp\" — hoặc dùng Bộ lọc nâng cao.",
+                "Giá trị phải viết giống trong danh sách: \"cấp BN BYT\" (danh sách ghi BYT, không ghi Bộ Y tế). Không cần gõ dấu.",
                 "Không cần AI: phần mềm có bộ phân tích từ khóa chạy offline. Bật AI trong \"⚙ Cài đặt\" để hiểu được câu phức tạp hơn.",
                 "Câu hỏi chỉ tạo điều kiện lọc, không làm thay đổi dữ liệu.",
             ]),
@@ -129,6 +140,7 @@ public partial class HelpViewModel : ObservableObject
         new("🏢", "Đơn vị cấp trên (gồm đơn vị trực thuộc)",
             "Gom các bộ môn, phòng, trung tâm trực thuộc về Viện, Trung tâm, Khoa, Phân hiệu.",
             [
+                "Nhanh nhất: gõ vào ô \"Hỏi nhanh\" \"thuộc Khoa Y học cổ truyền\" (hoặc \"thuộc YHCT\") rồi Enter.",
                 "Trong \"Bộ lọc nâng cao\": chọn cột \"Đơn vị cấp trên\" → Bằng → ví dụ \"Khoa Y học cổ truyền\". Kết quả gồm cả các dòng \"YHCT - BM …\".",
                 "Trong tab \"Thống kê\": chọn \"Đơn vị cấp trên (gồm đơn vị trực thuộc)\" để đếm theo Viện / Khoa / Trung tâm / Phân hiệu.",
                 "Muốn xem cột này trong bảng: bật nó ở \"▦ Cột hiển thị\".",
@@ -163,22 +175,24 @@ public partial class HelpViewModel : ObservableObject
                 "Bấm \"💾 Lưu vào dữ liệu\".",
             ],
             [
-                "Bổ nhiệm lại cùng chức vụ: chọn \"Cập nhật dòng đã có\" — QĐ cũ được tự động chuyển vào cột \"QĐ bổ nhiệm trước\".",
+                "Bổ nhiệm lại cùng chức vụ: chọn \"Cập nhật dòng đã có\" — QĐ cũ được tự động lưu lại (xem mục \"QĐ bổ nhiệm trước\").",
                 "Được đề bạt sang chức vụ mới: chọn \"Thêm dòng chức vụ mới\" và tích \"Đồng thời chuyển chức vụ cũ sang Đã thôi\".",
                 "Có thể chọn nhiều tệp QĐ cùng lúc; phần mềm xem lần lượt từng tệp.",
             ]),
 
         new("🗂", "QĐ bổ nhiệm trước (lịch sử QĐ)",
-            "Một người được bổ nhiệm lại vẫn giữ 1 dòng; các QĐ cũ được lưu ở cột \"QĐ bổ nhiệm trước\".",
+            "Một người được bổ nhiệm lại vẫn giữ 1 dòng; QĐ cũ được tự động lưu lại trước khi thay bằng QĐ mới.",
             [
-                "Khi một dòng nhận QĐ mới (qua \"Đọc Quyết định\" → \"Cập nhật dòng đã có\"), QĐ cũ được thêm vào cột này trước khi thay.",
+                "Khi một dòng nhận QĐ mới (qua \"Đọc Quyết định\" → \"Cập nhật dòng đã có\"), QĐ đang ghi trên dòng được lưu lại trước khi thay.",
                 "Trong cửa sổ Sửa: đổi CẢ Số QĐ và Ngày QĐ thì QĐ cũ cũng được lưu lại.",
-                "Xem cột này: bật \"QĐ bổ nhiệm trước\" ở \"▦ Cột hiển thị\", hoặc mở cửa sổ Sửa.",
+                "Tệp Excel có các cột \"Số QĐ bổ nhiệm (cũ1)\", \"(cũ2)\", \"Đơn vị BN (cũ)\", \"(cũ 3)\", \"ngày QĐ BN Cũ 3\": QĐ cũ vào cũ1 (ngày vào cũ2, đơn vị BN vào \"Đơn vị BN (cũ)\"); QĐ cũ1 trước đó được nối thêm vào cuối cột cũ 3, ngày của nó vào \"ngày QĐ BN Cũ 3\".",
+                "Tệp không có các cột đó: QĐ cũ được thêm vào cột \"QĐ bổ nhiệm trước\" (bật ở \"▦ Cột hiển thị\").",
             ],
             [
-                "Ví dụ nội dung: \"1234/QĐ-ĐHYHN ngày 01/07/2010 (BN 2010–2015); 2345/QĐ-ĐHYHN ngày 15/06/2015 (BN 2015–2020)\".",
+                "Ví dụ cột \"QĐ bổ nhiệm trước\": \"1234/QĐ-ĐHYHN ngày 01/07/2010 (BN 2010–2015); 2345/QĐ-ĐHYHN ngày 15/06/2015 (BN 2015–2020)\".",
                 "Chỉ sửa Số QĐ (giữ nguyên Ngày QĐ) được coi là sửa lỗi gõ, nên không lưu vào lịch sử.",
-                "Tìm mọi người từng được bổ nhiệm theo một QĐ: lọc \"QĐ bổ nhiệm trước\" → Chứa → số QĐ.",
+                "QĐ đã có trong các cột QĐ cũ thì không được ghi thêm lần nữa.",
+                "Tìm mọi người từng được bổ nhiệm theo một QĐ: lọc cột QĐ cũ (ví dụ \"Số QĐ bổ nhiệm (cũ 3)\") → Chứa → số QĐ.",
             ]),
 
         new("➕", "Cột bổ sung (cột tự thêm trong Excel)",
@@ -187,6 +201,7 @@ public partial class HelpViewModel : ObservableObject
                 "Thêm cột vào tệp Excel, đặt tiêu đề ở dòng tiêu đề (dòng có \"Họ và tên\"), ví dụ \"Trưởng phòng\".",
                 "Nhập Excel như bình thường — bảng cảnh báo sẽ liệt kê các cột bổ sung tìm thấy.",
                 "Cột mới hiện trong bảng, trong Bộ lọc nâng cao, trong cửa sổ Sửa (nhóm \"Cột bổ sung (từ Excel)\") và khi xuất Excel.",
+                "Lọc nhanh: gõ vào ô \"Hỏi nhanh\" tên cột rồi giá trị, ví dụ \"Dân tộc Tày\", \"phân loại chức vụ Trưởng\"; cột đánh dấu x chỉ cần gõ tên cột (\"chức vụ cơ hữu\").",
             ],
             [
                 "Cột bổ sung lưu dạng văn bản: lọc bằng Chứa, Bằng, Trống, Không trống.",
@@ -224,11 +239,12 @@ public partial class HelpViewModel : ObservableObject
             [
                 "Lọc danh sách như mong muốn.",
                 "Bấm \"📤 Xuất Excel\" (Ctrl+E).",
-                "Chọn \"Có\" = đủ các cột theo mẫu gốc (nhập lại được vào phần mềm), \"Không\" = chỉ các cột đang hiển thị.",
+                "Chọn \"Có\" = đủ các cột, đúng vị trí cột như tệp Excel đã nhập (nhập lại được vào phần mềm), \"Không\" = chỉ các cột đang hiển thị.",
                 "Chọn nơi lưu; phần mềm hỏi có mở tệp vừa xuất không.",
             ],
             [
                 "Thứ tự sắp xếp hiện tại trên bảng được giữ khi xuất.",
+                "Thứ tự cột theo tệp Excel nhập gần nhất (khi chọn \"Thay thế\"). Cột của mẫu mà tệp không có được đặt ở cuối, hoặc bỏ đi nếu trống.",
                 "Đóng tệp trong Excel trước khi xuất đè lên cùng tên.",
             ]),
 
