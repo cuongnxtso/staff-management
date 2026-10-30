@@ -48,6 +48,13 @@ public sealed class SettingsStore(StaffRepository repo)
         set => repo.SetSetting("App.HelpOffered", value ? "1" : null);
     }
 
+    /// <summary>Which <see cref="DefaultPresets.Version"/> was last added to this data folder (0 = none).</summary>
+    public int DefaultPresetsVersion
+    {
+        get => int.TryParse(repo.GetSetting("Presets.DefaultsVersion"), out var v) ? v : 0;
+        set => repo.SetSetting("Presets.DefaultsVersion", value.ToString());
+    }
+
     public ReminderSettings LoadReminders() => new()
     {
         LeadDays = int.TryParse(repo.GetSetting("Reminder.LeadDays"), out var lead) && lead > 0 ? lead : 100,

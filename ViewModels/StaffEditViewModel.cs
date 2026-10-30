@@ -64,7 +64,10 @@ public partial class FieldEditorViewModel : ObservableObject
     }
 }
 
-public sealed record EditorGroup(string Header, IReadOnlyList<FieldEditorViewModel> Editors);
+public sealed record EditorGroup(string Header, IReadOnlyList<FieldEditorViewModel> Editors)
+{
+    public override string ToString() => Header; // tab name for screen readers
+}
 
 public partial class StaffEditViewModel : ObservableObject
 {
@@ -74,6 +77,8 @@ public partial class StaffEditViewModel : ObservableObject
 
     public string WindowTitle { get; }
     public IReadOnlyList<EditorGroup> Groups { get; }
+    /// <summary>The tab shown when the window opens: "Thông tin chung".</summary>
+    public EditorGroup? SelectedGroup { get; set; }
     public StaffRecord? Result { get; private set; }
 
     [ObservableProperty] private bool _isFormer;
@@ -90,6 +95,7 @@ public partial class StaffEditViewModel : ObservableObject
             .GroupBy(f => f.Group!)
             .Select(g => new EditorGroup(g.Key, g.Select(f => new FieldEditorViewModel(f, record, suggestions(f))).ToList()))
             .ToList();
+        SelectedGroup = Groups.FirstOrDefault(g => g.Header == FieldCatalog.GroupGeneral) ?? Groups.FirstOrDefault();
         UpdateComputedInfo();
     }
 

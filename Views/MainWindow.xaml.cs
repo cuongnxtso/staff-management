@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using StaffManagement.Models;
 using StaffManagement.ViewModels;
 
@@ -109,6 +110,41 @@ public partial class MainWindow : Window
     }
 
     private void OnColumnsPopupClosed(object? sender, EventArgs e) => ColumnsToggle.IsChecked = false;
+
+    // Saved-filter picker: type to search, Up / Down to move, Enter to apply, Esc to close.
+    private void OnPresetPopupOpened(object? sender, EventArgs e)
+    {
+        PresetListBox.SelectedItem = Vm.SelectedPreset;
+        PresetListBox.ScrollIntoView(PresetListBox.SelectedItem ?? PresetListBox.Items.Cast<object>().FirstOrDefault());
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => Keyboard.Focus(PresetSearch));
+    }
+
+    private void OnPresetPickerKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Down or Key.Up when PresetSearch.IsKeyboardFocused && PresetListBox.Items.Count > 0:
+                int i = PresetListBox.SelectedIndex + (e.Key == Key.Down ? 1 : -1);
+                PresetListBox.SelectedIndex = Math.Clamp(i, 0, PresetListBox.Items.Count - 1);
+                PresetListBox.ScrollIntoView(PresetListBox.SelectedItem);
+                break;
+            case Key.Enter:
+                Vm.ChoosePresetCommand.Execute(PresetListBox.SelectedItem ?? PresetListBox.Items.Cast<object>().FirstOrDefault());
+                break;
+            case Key.Escape:
+                Vm.IsPresetPickerOpen = false;
+                break;
+            default:
+                return;
+        }
+        e.Handled = true;
+    }
+
+    private void OnPresetListClick(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(PresetListBox, (DependencyObject)e.OriginalSource) is ListBoxItem item)
+            Vm.ChoosePresetCommand.Execute(item.DataContext);
+    }
 
     private void OnDragOver(object sender, DragEventArgs e)
     {

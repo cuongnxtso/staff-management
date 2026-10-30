@@ -39,6 +39,11 @@ public partial class MainViewModel : ObservableObject
     public ICollectionView View { get; }
     public ObservableCollection<FilterRuleViewModel> Rules { get; } = [];
     public ObservableCollection<FilterPreset> Presets { get; } = [];
+    /// <summary>The saved-filter picker: newest first, narrowed by <see cref="PresetQuery"/>.</summary>
+    public ListCollectionView PresetList { get; }
+    public string PresetButtonText => SelectedPreset?.Name
+        ?? (Presets.Count == 0 ? "Chưa có bộ lọc đã lưu" : $"Chọn bộ lọc đã lưu ({Presets.Count})…");
+    public bool NoPresetMatch => Presets.Count > 0 && PresetList.IsEmpty;
     public ObservableCollection<ColumnOption> Columns { get; }
     public ObservableCollection<StatRow> StatRows { get; } = [];
     public IReadOnlyList<StatOption> StatOptions => StatOption.All;
@@ -58,7 +63,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _naturalQuery;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _statusText = "Sẵn sàng";
-    [ObservableProperty] private FilterPreset? _selectedPreset;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(PresetButtonText))] private FilterPreset? _selectedPreset;
+    [ObservableProperty] private string? _presetQuery;
+    [ObservableProperty] private bool _isPresetPickerOpen;
     [ObservableProperty] private StatOption _statOption;
     [ObservableProperty] private bool _statCountPeople = true;
     [ObservableProperty] private StaffRecord? _selectedRecord;
@@ -106,7 +113,12 @@ public partial class MainViewModel : ObservableObject
         Rules.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(RulesHeader)); OnRulesEdited(); Refresh(); };
         Records.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(TotalRows)); OnPropertyChanged(nameof(HasData)); };
 
+        AddDefaultPresets();
         foreach (var p in _repo.LoadPresets()) Presets.Add(p);
+        PresetList = new ListCollectionView(Presets) { Filter = o => MatchesPresetQuery((FilterPreset)o) };
+        PresetList.SortDescriptions.Add(new SortDescription(nameof(FilterPreset.SavedAt), ListSortDirection.Descending));
+        PresetList.SortDescriptions.Add(new SortDescription(nameof(FilterPreset.Name), ListSortDirection.Ascending));
+        Presets.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(PresetButtonText)); OnPropertyChanged(nameof(NoPresetMatch)); };
         UpdateAiModeText();
         _reminderSettings = _settings.LoadReminders();
         _reminderStates = _repo.LoadReminderStates();
@@ -380,8 +392,15 @@ public partial class MainViewModel : ObservableObject
         _suspendRefresh = true;
         Rules.Clear();
         MatchAll = set.MatchAll;
+        var missing = new List<string>();
         foreach (var r in set.Rules)
         {
+            // A column this data doesn't have (e.g. an Excel-added column, in a filter imported from another PC).
+            if (FieldCatalog.Find(r.Field) is null)
+            {
+                missing.Add(r.Field.StartsWith(FieldCatalog.ExtraKeyPrefix) ? r.Field[FieldCatalog.ExtraKeyPrefix.Length..] : r.Field);
+                continue;
+            }
             // "Tình trạng" is what the sheet tabs show: switch sheet instead of adding a rule that empties the other sheet.
             if (r.Field == nameof(StaffRecord.Status) && VietnameseText.Normalize(r.Value1) is { Length: > 0 } status)
             {
@@ -393,6 +412,8 @@ public partial class MainViewModel : ObservableObject
         }
         _suspendRefresh = false;
         Refresh();
+        if (missing.Count > 0)
+            StatusText = $"Bỏ qua {missing.Count} điều kiện vì dữ liệu không có cột: {string.Join(", ", missing.Distinct())}.";
     }
 
     partial void OnSelectedPresetChanged(FilterPreset? value)
@@ -421,7 +442,7 @@ public partial class MainViewModel : ObservableObject
         }
         var name = _dialogs.Prompt("Lưu bộ lọc", "Tên bộ lọc (ví dụ: Cán bộ nam 20–40 tuổi):", SelectedPreset?.Name ?? _lastPresetName);
         if (string.IsNullOrWhiteSpace(name)) return;
-        var preset = new FilterPreset { Name = name.Trim(), Filter = CurrentFilter() };
+        var preset = new FilterPreset { Name = name.Trim(), Filter = CurrentFilter(), SavedAt = DateTime.Now };
         _repo.SavePreset(preset);
         var existing = Presets.FirstOrDefault(p => p.Name == preset.Name);
         if (existing is not null) Presets.Remove(existing);
@@ -432,6 +453,128 @@ public partial class MainViewModel : ObservableObject
         _suspendRefresh = false;
         _lastPresetName = preset.Name;
         StatusText = $"Đã lưu bộ lọc \"{preset.Name}\".";
+    }
+
+    [RelayCommand]
+    private void TogglePresetPicker()
+    {
+        PresetQuery = null;
+        IsPresetPickerOpen = !IsPresetPickerOpen;
+    }
+
+    [RelayCommand]
+    private void ChoosePreset(FilterPreset? preset)
+    {
+        if (preset is null) return;
+        IsPresetPickerOpen = false;
+        // Choosing the selected filter again re-applies it (the rules may have been edited since).
+        if (ReferenceEquals(preset, SelectedPreset)) ApplyFilterSet(preset.Filter);
+        else SelectedPreset = preset;
+    }
+
+    partial void OnPresetQueryChanged(string? value)
+    {
+        PresetList.Refresh();
+        OnPropertyChanged(nameof(NoPresetMatch));
+    }
+
+    /// <summary>Every typed word is in the name; accents and case are ignored.</summary>
+    private bool MatchesPresetQuery(FilterPreset preset)
+    {
+        var name = VietnameseText.Normalize(preset.Name);
+        return VietnameseText.Normalize(PresetQuery).Split(' ', StringSplitOptions.RemoveEmptyEntries).All(name.Contains);
+    }
+
+    /// <summary>Migration: adds the default saved filters that this data folder hasn't had yet.</summary>
+    private void AddDefaultPresets()
+    {
+        if (_settings.DefaultPresetsVersion >= DefaultPresets.Version) return;
+        var names = _repo.LoadPresets().Select(p => p.Name).ToHashSet();
+        foreach (var preset in DefaultPresets.All().Where(p => !names.Contains(p.Name)))
+            _repo.SavePreset(preset);
+        _settings.DefaultPresetsVersion = DefaultPresets.Version;
+    }
+
+    [RelayCommand]
+    private void ExportPresets()
+    {
+        IsPresetPickerOpen = false;
+        if (Presets.Count == 0)
+        {
+            _dialogs.Info("Chưa có bộ lọc nào để xuất.");
+            return;
+        }
+        var path = _dialogs.SaveFile("Xuất bộ lọc đã lưu", PresetFile.DialogFilter, $"BoLoc_{DateTime.Today:yyyyMMdd}.json");
+        if (path is null) return;
+        try
+        {
+            PresetFile.Save(path, Presets.OrderByDescending(p => p.SavedAt).ThenBy(p => p.Name));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _dialogs.Error($"Không ghi được tệp:\n{ex.Message}");
+            return;
+        }
+        StatusText = $"Đã xuất {Presets.Count} bộ lọc ra {Path.GetFileName(path)}.";
+    }
+
+    [RelayCommand]
+    private void ImportPresets()
+    {
+        IsPresetPickerOpen = false;
+        var path = _dialogs.OpenFile("Nhập bộ lọc từ tệp", PresetFile.DialogFilter);
+        if (path is null) return;
+        List<FilterPreset> incoming;
+        try
+        {
+            incoming = PresetFile.Load(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            _dialogs.Error($"Không đọc được tệp bộ lọc:\n{ex.Message}");
+            return;
+        }
+        if (incoming.Count == 0)
+        {
+            _dialogs.Info("Tệp không có bộ lọc nào dùng được.");
+            return;
+        }
+
+        // Same name but different conditions: ask once for all of them.
+        var clashes = incoming.Where(p => Presets.FirstOrDefault(e => e.Name == p.Name) is { } e && !PresetFile.SameFilter(e, p)).ToList();
+        bool replace = false;
+        if (clashes.Count > 0)
+        {
+            var answer = _dialogs.YesNoCancel(
+                $"{clashes.Count} bộ lọc trong tệp trùng tên với bộ lọc đã có nhưng khác điều kiện, ví dụ \"{clashes[0].Name}\".\n\n" +
+                "• Có: thay bằng bộ lọc trong tệp\n• Không: giữ bộ lọc đang có", "Nhập bộ lọc");
+            if (answer is null) return;
+            replace = answer.Value;
+        }
+
+        int added = 0, replaced = 0, skipped = 0;
+        foreach (var preset in incoming.DistinctBy(p => p.Name))
+        {
+            var existing = Presets.FirstOrDefault(e => e.Name == preset.Name);
+            if (existing is not null && (!replace || PresetFile.SameFilter(existing, preset)))
+            {
+                skipped++;
+                continue;
+            }
+            preset.SavedAt = DateTime.Now; // just imported: show at the top
+            _repo.SavePreset(preset);
+            if (existing is not null)
+            {
+                if (ReferenceEquals(existing, SelectedPreset)) SelectedPreset = null;
+                Presets.Remove(existing);
+                replaced++;
+            }
+            else added++;
+            Presets.Add(preset);
+        }
+        var summary = $"Đã nhập {added} bộ lọc mới" + (replaced > 0 ? $", thay {replaced}" : "") + (skipped > 0 ? $", bỏ qua {skipped} (đã có)" : "") + ".";
+        StatusText = summary;
+        _dialogs.Info(summary, "Nhập bộ lọc");
     }
 
     [RelayCommand]

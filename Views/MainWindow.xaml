@@ -269,7 +269,58 @@
                         <DockPanel Margin="0,10,0,0">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                 <TextBlock Text="Bộ lọc đã lưu:" VerticalAlignment="Center" Style="{StaticResource Muted}" Margin="0,0,6,0" />
-                                <ComboBox Width="240" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Name" Margin="0,0,6,0" />
+                                <!-- Saved filters: a button that opens a searchable list (newest first, ~5 rows, then it scrolls). -->
+                                <Grid Margin="0,0,6,0">
+                                    <Button x:Name="PresetButton" Width="260" Margin="0" Command="{Binding TogglePresetPickerCommand}"
+                                            IsHitTestVisible="{Binding IsOpen, ElementName=PresetPopup, Converter={StaticResource InverseBool}}"
+                                            AutomationProperties.Name="Bộ lọc đã lưu"
+                                            ToolTip="Chọn một bộ lọc đã lưu — có ô tìm kiếm, bộ lọc mới lưu ở trên cùng">
+                                        <DockPanel Width="234">
+                                            <TextBlock DockPanel.Dock="Right" Text="▾" Margin="8,0,0,0" />
+                                            <TextBlock Text="{Binding PresetButtonText}" TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
+                                    </Button>
+                                    <Popup x:Name="PresetPopup" PlacementTarget="{Binding ElementName=PresetButton}" Placement="Bottom"
+                                           StaysOpen="False" AllowsTransparency="True" IsOpen="{Binding IsPresetPickerOpen}" Opened="OnPresetPopupOpened">
+                                        <Border Style="{StaticResource Card}" Width="340" Margin="0,4,0,0" PreviewKeyDown="OnPresetPickerKeyDown">
+                                            <StackPanel>
+                                                <TextBox x:Name="PresetSearch" Style="{StaticResource SearchBox}" Tag="🔎  Tìm bộ lọc (không cần dấu)…"
+                                                         Text="{Binding PresetQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                         AutomationProperties.Name="Tìm bộ lọc đã lưu" />
+                                                <ListBox x:Name="PresetListBox" ItemsSource="{Binding PresetList}" Margin="0,6,0,0" MaxHeight="216"
+                                                         BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                                         PreviewMouseLeftButtonUp="OnPresetListClick">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="2,3">
+                                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Style="{StaticResource Muted}" FontSize="11">
+                                                                    <Run Text="{Binding Filter.Rules.Count, Mode=OneWay}" /><Run Text=" điều kiện" /><Run
+                                                                         Text="{Binding SavedAt, Mode=OneWay, StringFormat=' · lưu {0:dd/MM/yyyy HH:mm}'}" />
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                                <TextBlock Text="Không tìm thấy bộ lọc nào." Style="{StaticResource Muted}" Margin="4,8,4,4"
+                                                           Visibility="{Binding NoPresetMatch, Converter={StaticResource VisibleIf}}" />
+                                                <TextBlock Text="Chưa có bộ lọc nào. Thêm điều kiện rồi bấm &quot;💾 Lưu bộ lọc&quot;." Style="{StaticResource Muted}"
+                                                           Margin="4,8,4,4" TextWrapping="Wrap"
+                                                           Visibility="{Binding Presets.Count, Converter={StaticResource VisibleIf}, ConverterParameter=Invert}" />
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <Button DockPanel.Dock="Right" Content="⤒  Nhập…" Margin="0" Padding="9,3" Command="{Binding ImportPresetsCommand}"
+                                                            ToolTip="Thêm bộ lọc từ tệp .json (ví dụ tệp xuất từ máy khác)" />
+                                                    <Button DockPanel.Dock="Right" Content="⤓  Xuất…" Padding="9,3" Command="{Binding ExportPresetsCommand}"
+                                                            ToolTip="Lưu tất cả bộ lọc ra tệp .json để dùng ở máy khác hoặc giữ bản sao" />
+                                                    <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" FontSize="11">
+                                                        <Run Text="{Binding Presets.Count, Mode=OneWay}" /><Run Text=" bộ lọc" />
+                                                    </TextBlock>
+                                                </DockPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
                                 <Button Content="💾  Lưu bộ lọc" Command="{Binding SavePresetCommand}" ToolTip="Lưu các điều kiện hiện tại để dùng lại" />
                                 <Button Content="Xóa" Style="{StaticResource DangerButton}" Command="{Binding DeletePresetCommand}" Margin="0"
                                         ToolTip="Xóa bộ lọc đã lưu đang chọn" />
